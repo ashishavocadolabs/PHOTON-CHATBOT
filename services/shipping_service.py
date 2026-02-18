@@ -74,6 +74,10 @@ def get_pincode_details(pincode):
         json_data = response.json()
         data = json_data.get("data", {})
 
+# HANDLE STRING RESPONSE
+        if isinstance(data, str):
+            data = json.loads(data)
+
         result = {
             "city": data.get("cityName"),
             "state": data.get("stateCode"),

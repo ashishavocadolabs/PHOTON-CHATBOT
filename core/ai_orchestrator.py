@@ -229,6 +229,16 @@ Never send null values.
 
             if function_name == "get_quote":
 
+                required_fields = ["from_pincode", "to_pincode", "weight", "length", "width", "height"]
+
+                missing = [f for f in required_fields if args.get(f) in [None, ""]]
+
+                if missing:
+                    return {
+                        "response": "Please provide: " + ", ".join(missing)
+                    }
+
+
                 conversation_state.update(args)
 
                 result = get_quote(
