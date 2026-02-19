@@ -152,6 +152,35 @@ def get_quote(from_pincode, to_pincode, weight, length, width, height):
             "error": f"Quote processing error: {str(e)}"
         }
 
+def get_all_warehouses():
+    try:
+        url = f"{BASE_URL}/api/Common/AddressList"
+
+        params = {
+            "AddressType": "ShipFrom"
+        }
+
+        response = safe_request("GET", url, params=params, headers=get_headers())
+
+        if isinstance(response, dict):
+            return []
+
+        if response.status_code != 200:
+            return []
+
+        data = response.json().get("data", [])
+
+        # Only active warehouses
+        active = [w for w in data if w.get("isActive")]
+
+        debug_log("ALL ACTIVE WAREHOUSES", active)
+
+        return active
+
+    except Exception as e:
+        debug_log("WAREHOUSE ERROR", str(e))
+        return []
+
 
 # get default warehouse (ship from address)
 def get_default_warehouse():
@@ -197,6 +226,12 @@ def get_default_warehouse():
 def create_shipment(state):
 
     warehouse = state.get("warehouse")
+    if state.get("to_pincode") == warehouse.get("postalCode"):
+        return {
+            "statusCode": 400,
+            "error": "Ship From and Ship To pincode cannot be same."
+        }
+
 
     if not warehouse:
         return {"statusCode": 400, "error": "Warehouse not selected."}
@@ -240,7 +275,7 @@ def create_shipment(state):
         "lengthUom": "CM"
     }
 
-    final_payload = {"obj": payload}   # 🔥 IMPORTANT FIX
+    final_payload = {"obj": payload}   #  IMPORTANT FIX
 
     debug_log("QUICKSHIP PAYLOAD", final_payload)
 

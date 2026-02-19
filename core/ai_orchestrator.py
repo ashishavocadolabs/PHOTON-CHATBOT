@@ -14,7 +14,10 @@ load_dotenv()
 
 client = Groq(api_key=os.getenv("GROQ_API_KEY"))
 
-#global conversation state
+# =====================================================
+# GLOBAL CONVERSATION STATE
+# =====================================================
+
 conversation_state = {
     # Quote
     "from_pincode": None,
@@ -47,7 +50,10 @@ conversation_state = {
 }
 
 
-#reset state after shipment creation or when needed
+# =====================================================
+# RESET STATE
+# =====================================================
+
 def reset_state():
     for key in conversation_state:
         conversation_state[key] = None
@@ -57,12 +63,17 @@ def reset_state():
     conversation_state["warehouse_selection_mode"] = False
 
 
-#main chat handler
+# =====================================================
+# MAIN CHAT HANDLER
+# =====================================================
+
 def handle_chat(user_message):
     try:
         user_message = user_message.strip()
 
-        # warehouse selection flow
+        # -------------------------------------------------
+        # Warehouse Selection Flow
+        # -------------------------------------------------
         if conversation_state["warehouse_selection_mode"] and user_message.isdigit():
 
             index = int(user_message)
@@ -82,9 +93,15 @@ def handle_chat(user_message):
 
             return response
 
+        # -------------------------------------------------
+        # Courier Selection Flow
+        # -------------------------------------------------
+        if (
+            conversation_state["available_services"]
+            and not conversation_state.get("carrierId")
+            and user_message.isdigit()
+        ):
 
-        #courier service selection flow
-        if conversation_state["available_services"] and user_message.isdigit():
 
             index = int(user_message)
             services = conversation_state["available_services"]
@@ -96,18 +113,20 @@ def handle_chat(user_message):
             conversation_state["carrierId"] = selected.get("carrierId")
             conversation_state["serviceId"] = selected.get("serviceId")
 
-            return {"response":
-                    "Please provide:\n"
-                    "customer name,\n"
-                    "customer phone,\n"
-                    "address line1,\n"
-                    "product,\n"
-                    "invoice amount,\n"
-                    "quantity"
-                    }
+            return {
+                "response":
+                "Please provide:\n"
+                "customer name,\n"
+                "customer phone,\n"
+                "address line1,\n"
+                "product,\n"
+                "invoice amount,\n"
+                "quantity"
+            }
 
-
-        #collect shipment details → show warehouses
+        # -------------------------------------------------
+        # Shipment Details Collection
+        # -------------------------------------------------
         if conversation_state.get("carrierId") and not conversation_state["warehouse_selection_mode"]:
 
             extract_shipment_details(user_message)
@@ -117,17 +136,25 @@ def handle_chat(user_message):
             if missing:
                 return {"response": f"Please provide: {', '.join(missing)}"}
 
-            # All shipment details collected → Show warehouses
-            warehouse = get_default_warehouse()
+            from services.shipping_service import get_all_warehouses
+
+            warehouse = get_all_warehouses()
 
             if not warehouse:
                 return {"response": "No warehouse found."}
 
-            # If API returns single warehouse
-            if isinstance(warehouse, dict):
-                conversation_state["available_warehouses"] = [warehouse]
-            else:
-                conversation_state["available_warehouses"] = warehouse
+            conversation_state["available_warehouses"] = (
+                [warehouse] if isinstance(warehouse, dict) else warehouse
+            )
+            conversation_state["warehouse_selection_mode"] = True
+
+
+            if not warehouse:
+                return {"response": "No warehouse found."}
+
+            conversation_state["available_warehouses"] = (
+                [warehouse] if isinstance(warehouse, dict) else warehouse
+            )
 
             conversation_state["warehouse_selection_mode"] = True
 
@@ -135,39 +162,69 @@ def handle_chat(user_message):
 
             for i, w in enumerate(conversation_state["available_warehouses"], 1):
                 msg += (
-                    f"{i}. {w.get('addressName')} - "
-                    f"{w.get('city')} ({w.get('state')})\n"
+                    f"{i}. 🏢 {w.get('addressName')}\n"
+                    f"   📍 {w.get('address1')}, {w.get('city')} ({w.get('state')})\n"
+                    f"   📮 {w.get('postalCode')}\n"
+                    f"   📞 {w.get('phone')}\n\n"
                 )
 
-            msg += "\nType warehouse number to confirm."
+            msg += "Type warehouse number to confirm."
 
             return {"response": msg}
 
+        # =====================================================
+        # AI ORCHESTRATION (STRICT PROMPT)
+        # =====================================================
 
-       # AI Orchestration with Groq
+        SYSTEM_PROMPT = """
+You are Photon AI Shipping Assistant developed by AvocadoLabs Pvt Ltd.
+
+STRICT RULES:
+- Only help with shipping quotes and tracking.
+- Never guess or fabricate values.
+- Never generate default weight or dimensions.
+- Never invent pincodes.
+- Do NOT call any function unless ALL required fields are provided.
+
+========================
+FOR SHIPPING QUOTE
+========================
+Collect:
+
+1. from_pincode (6 digit Indian pincode as STRING)
+2. to_pincode (6 digit Indian pincode as STRING)
+3. weight (number in KG)
+4. length (number in CM)
+5. width (number in CM)
+6. height (number in CM)
+
+Rules:
+- Pincodes must be exactly 6 digits.
+- Always send pincodes as STRING.
+- If ANY field is missing → ask for that field.
+- Do NOT send null.
+- Do NOT auto-fill values.
+
+========================
+FOR TRACKING
+========================
+Require:
+- tracking_number (string)
+
+If missing → ask for tracking number.
+Do not guess tracking numbers.
+
+If user says:
+"help" or "quotation"
+→ Ask:
+"Please provide from pincode, to pincode, weight (kg) and dimensions (L x W x H in cm)."
+"""
+
         response = client.chat.completions.create(
             model="llama-3.1-8b-instant",
+            temperature=0,
             messages=[
-                {
-                    "role": "system",
-                    "content": """
-You are Photon AI Shipping Assistant.
-
-Help only with shipping quotes and tracking.
-
-If user asks for quote:
-Collect:
-- from_pincode (string)
-- to_pincode (string)
-- weight (number)
-- length (number)
-- width (number)
-- height (number)
-
-Always send pincodes as STRING.
-Never send null values.
-"""
-                },
+                {"role": "system", "content": SYSTEM_PROMPT},
                 {"role": "user", "content": user_message}
             ],
             tools=[
@@ -175,6 +232,7 @@ Never send null values.
                     "type": "function",
                     "function": {
                         "name": "get_quote",
+                        "description": "Get shipping quote when all required fields are available.",
                         "parameters": {
                             "type": "object",
                             "properties": {
@@ -184,15 +242,7 @@ Never send null values.
                                 "length": {"type": "number"},
                                 "width": {"type": "number"},
                                 "height": {"type": "number"}
-                            },
-                            "required": [
-                                "from_pincode",
-                                "to_pincode",
-                                "weight",
-                                "length",
-                                "width",
-                                "height"
-                            ]
+                            }
                         }
                     }
                 },
@@ -200,12 +250,12 @@ Never send null values.
                     "type": "function",
                     "function": {
                         "name": "get_tracking",
+                        "description": "Track shipment using tracking number.",
                         "parameters": {
                             "type": "object",
                             "properties": {
                                 "tracking_number": {"type": "string"}
-                            },
-                            "required": ["tracking_number"]
+                            }
                         }
                     }
                 }
@@ -215,46 +265,52 @@ Never send null values.
 
         message = response.choices[0].message
 
+        # =====================================================
+        # TOOL EXECUTION WITH HARD VALIDATION
+        # =====================================================
+
         if message.tool_calls:
 
             tool_call = message.tool_calls[0]
             function_name = tool_call.function.name
             args = json.loads(tool_call.function.arguments or "{}")
 
-            # Force pincode string
-            if "from_pincode" in args:
-                args["from_pincode"] = str(args["from_pincode"])
-            if "to_pincode" in args:
-                args["to_pincode"] = str(args["to_pincode"])
-
             if function_name == "get_quote":
 
                 required_fields = ["from_pincode", "to_pincode", "weight", "length", "width", "height"]
 
-                missing = [f for f in required_fields if args.get(f) in [None, ""]]
+                for field in required_fields:
+                    if field not in args or args[field] in [None, "", 0]:
+                        return {"response": f"Please provide {field.replace('_',' ')}."}
 
-                if missing:
-                    return {
-                        "response": "Please provide: " + ", ".join(missing)
-                    }
+                # strict pincode validation
+                if not re.match(r"^\d{6}$", str(args["from_pincode"])):
+                    return {"response": "Invalid from pincode. It must be 6 digits."}
 
+                if not re.match(r"^\d{6}$", str(args["to_pincode"])):
+                    return {"response": "Invalid to pincode. It must be 6 digits."}
 
                 conversation_state.update(args)
 
                 result = get_quote(
-                    args["from_pincode"],
-                    args["to_pincode"],
-                    args["weight"],
-                    args["length"],
-                    args["width"],
-                    args["height"]
+                    str(args["from_pincode"]),
+                    str(args["to_pincode"]),
+                    float(args["weight"]),
+                    float(args["length"]),
+                    float(args["width"]),
+                    float(args["height"])
                 )
 
                 return format_quote(result)
 
             elif function_name == "get_tracking":
 
-                result = get_tracking(args["tracking_number"])
+                tracking_number = args.get("tracking_number")
+
+                if not tracking_number:
+                    return {"response": "Please provide tracking number."}
+
+                result = get_tracking(tracking_number)
                 return format_tracking(result)
 
         return {"response": message.content}
@@ -263,7 +319,10 @@ Never send null values.
         return {"response": f"System error: {str(e)}"}
 
 
-#shipment details extraction
+# =====================================================
+# SHIPMENT DETAIL HELPERS
+# =====================================================
+
 def get_missing_shipment_fields():
     required = [
         "customer_name",
@@ -273,19 +332,13 @@ def get_missing_shipment_fields():
         "invoice_amount",
         "quantity"
     ]
-
-    missing = []
-    for field in required:
-        if not conversation_state.get(field):
-            missing.append(field.replace("_", " "))
-
-    return missing
+    return [f.replace("_", " ") for f in required if not conversation_state.get(f)]
 
 
 def extract_shipment_details(message):
 
     if not conversation_state["customer_name"]:
-        conversation_state["customer_name"] = message.split("is")[-1].strip()
+        conversation_state["customer_name"] = message.strip()
         return
 
     if not conversation_state["customer_phone"]:
@@ -293,11 +346,12 @@ def extract_shipment_details(message):
         return
 
     if not conversation_state["address_line1"]:
-        conversation_state["address_line1"] = message
+        conversation_state["address_line1"] = message.strip()
         return
 
     if not conversation_state["product"]:
-        conversation_state["product"] = message
+        clean = re.sub(r"(product|prodcut)", "", message, flags=re.IGNORECASE)
+        conversation_state["product"] = clean.strip()
         return
 
     if not conversation_state["invoice_amount"]:
@@ -309,7 +363,10 @@ def extract_shipment_details(message):
         return
 
 
-#formatter functions
+# =====================================================
+# FORMATTERS
+# =====================================================
+
 def format_quote(result):
 
     if result.get("statusCode") != 200:
@@ -323,21 +380,17 @@ def format_quote(result):
     conversation_state["available_services"] = services
 
     msg = (
-        f"📍 From: {result['from_details']['city']} "
-        f"({result['from_details']['state']})\n"
-        f"📍 To: {result['to_details']['city']} "
-        f"({result['to_details']['state']})\n\n"
+        f"📍 From: {result['from_details']['city']} ({result['from_details']['state']})\n"
+        f"📍 To: {result['to_details']['city']} ({result['to_details']['state']})\n\n"
         f"⚖️ Weight: {conversation_state['weight']} kg\n"
         f"📏 Dimensions: {conversation_state['length']} x "
-        f"{conversation_state['width']} x "
-        f"{conversation_state['height']} cm\n\n"
+        f"{conversation_state['width']} x {conversation_state['height']} cm\n\n"
         "📦 Available Shipping Options:\n\n"
     )
 
     for i, s in enumerate(services, 1):
         msg += (
-            f"{i}. 🚚 {s.get('carrierCode')} - "
-            f"{s.get('serviceDescription')}\n"
+            f"{i}. 🚚 {s.get('carrierCode')} - {s.get('serviceDescription')}\n"
             f"💰 ₹{s.get('totalCharges')}\n"
             f"📅 {s.get('businessDaysInTransit')} days\n"
             "----------------------------------\n"
@@ -351,7 +404,10 @@ def format_quote(result):
 def format_shipment(result):
 
     if result.get("statusCode") != 200:
-        return {"response": result.get("error", "Shipment failed.")}
+        return {
+            "response": result.get("message") or result.get("error") or "Shipment failed."
+        }
+
 
     data = result.get("data", {})
 
