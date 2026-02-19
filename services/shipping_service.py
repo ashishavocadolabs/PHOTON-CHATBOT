@@ -4,7 +4,7 @@ from services.auth_service import get_headers, login
 
 BASE_URL = "https://api.shipphoton.com"
 
-DEBUG = True  # 🔥 Turn OFF in production
+DEBUG = True  # urn OFF in production
 
 
 #debug logging utility

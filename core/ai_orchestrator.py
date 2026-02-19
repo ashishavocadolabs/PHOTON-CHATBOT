@@ -14,10 +14,7 @@ load_dotenv()
 
 client = Groq(api_key=os.getenv("GROQ_API_KEY"))
 
-# =====================================================
-# GLOBAL CONVERSATION STATE
-# =====================================================
-
+#global conversation state
 conversation_state = {
     # Quote
     "from_pincode": None,
@@ -50,9 +47,7 @@ conversation_state = {
 }
 
 
-# =====================================================
-# RESET STATE
-# =====================================================
+#reset conversation state except quote details
 
 def reset_state():
     for key in conversation_state:
@@ -63,17 +58,13 @@ def reset_state():
     conversation_state["warehouse_selection_mode"] = False
 
 
-# =====================================================
-# MAIN CHAT HANDLER
-# =====================================================
+#main handler for chat messages
 
 def handle_chat(user_message):
     try:
         user_message = user_message.strip()
 
-        # -------------------------------------------------
-        # Warehouse Selection Flow
-        # -------------------------------------------------
+        #warehouse selection flow
         if conversation_state["warehouse_selection_mode"] and user_message.isdigit():
 
             index = int(user_message)
@@ -93,9 +84,7 @@ def handle_chat(user_message):
 
             return response
 
-        # -------------------------------------------------
-        # Courier Selection Flow
-        # -------------------------------------------------
+        #courier selection flow
         if (
             conversation_state["available_services"]
             and not conversation_state.get("carrierId")
@@ -124,9 +113,7 @@ def handle_chat(user_message):
                 "quantity"
             }
 
-        # -------------------------------------------------
-        # Shipment Details Collection
-        # -------------------------------------------------
+       #shipment detail collection flow
         if conversation_state.get("carrierId") and not conversation_state["warehouse_selection_mode"]:
 
             extract_shipment_details(user_message)
@@ -172,9 +159,7 @@ def handle_chat(user_message):
 
             return {"response": msg}
 
-        # =====================================================
-        # AI ORCHESTRATION (STRICT PROMPT)
-        # =====================================================
+        #prompt engineering with strict rules for quote and tracking
 
         SYSTEM_PROMPT = """
 You are Photon AI Shipping Assistant developed by AvocadoLabs Pvt Ltd.
@@ -265,9 +250,7 @@ If user says:
 
         message = response.choices[0].message
 
-        # =====================================================
-        # TOOL EXECUTION WITH HARD VALIDATION
-        # =====================================================
+        #tool calls handling
 
         if message.tool_calls:
 
@@ -319,9 +302,7 @@ If user says:
         return {"response": f"System error: {str(e)}"}
 
 
-# =====================================================
-# SHIPMENT DETAIL HELPERS
-# =====================================================
+#shipment details extraction and validation
 
 def get_missing_shipment_fields():
     required = [
@@ -363,9 +344,7 @@ def extract_shipment_details(message):
         return
 
 
-# =====================================================
-# FORMATTERS
-# =====================================================
+#formatter functions for quote, shipment and tracking results
 
 def format_quote(result):
 
