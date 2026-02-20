@@ -43,7 +43,8 @@ conversation_state = {
     # Product Details
     "product": None,
     "invoice_amount": None,
-    "quantity": None
+    "quantity": None,
+    "noOfBoxes": None,
 }
 
 
@@ -104,13 +105,12 @@ def handle_chat(user_message):
 
             return {
                 "response":
-                "Please provide:\n"
-                "customer name,\n"
-                "customer phone,\n"
-                "address line1,\n"
-                "product,\n"
-                "invoice amount,\n"
-                "quantity"
+                "📦 Please provide shipment details step-by-step:\n\n"
+                "1️⃣ Ship To Address\n"
+                "2️⃣ Product Name\n"
+                "3️⃣ Quantity\n"
+                "4️⃣ Invoice Amount\n"
+                "5️⃣ Number of Boxes"
             }
 
        #shipment detail collection flow
@@ -145,24 +145,26 @@ def handle_chat(user_message):
 
             conversation_state["warehouse_selection_mode"] = True
 
-            msg = "🏬 Select Ship From Warehouse:\n\n"
+            options = []
 
             for i, w in enumerate(conversation_state["available_warehouses"], 1):
-                msg += (
-                    f"{i}. 🏢 {w.get('addressName')}\n"
-                    f"   📍 {w.get('address1')}, {w.get('city')} ({w.get('state')})\n"
-                    f"   📮 {w.get('postalCode')}\n"
-                    f"   📞 {w.get('phone')}\n\n"
-                )
+                label = f"{'Warehouse: ' + w.get('addressName')} - {w.get('city')} ({w.get('state')}, {w.get('postalCode')}), {w.get('country')} \n {'Address: ' + w.get('address1')} - {w.get('address2')} \n {'Phone: ' + w.get('phone') if w.get('phone') else ''} \n{'Email: ' + w.get('emailId') if w.get('emailId') else ''}"
 
-            msg += "Type warehouse number to confirm."
+                options.append({
+                    "label": label,
+                    "value": str(i)
+                })
 
-            return {"response": msg}
+            return {
+                "response": "🏬 Select Ship From Warehouse:",
+                "options": options
+            }
 
         #prompt engineering with strict rules for quote and tracking
 
         SYSTEM_PROMPT = """
-You are Photon AI Shipping Assistant developed by AvocadoLabs Pvt Ltd.
+First you start Gretting!.......
+you are Photon AI Assistant and when ask who developed then give answer developed by AvocadoLabs Pvt Ltd.
 
 STRICT RULES:
 - Only help with shipping quotes and tracking.
@@ -182,6 +184,19 @@ Collect:
 4. length (number in CM)
 5. width (number in CM)
 6. height (number in CM)
+
+# From: Must be highlighted that pincodes should be 6 digit and sent as STRING.
+# To: Must be highlighted that pincodes should be 6 digit and sent as STRING.
+# Weight and Dimensions: Must be highlighted that these should not be guessed or auto-filled.
+# Available options text line should be highlighted with emojis and formatting for better UX.
+
+
+# Strict:
+# Carrier Name Should be also highlighted with bullet points and better UX.
+# INR symbol should be highlighted for price.
+# Arrival date and transit days should also be highlighted.
+
+# Warehouse Details should be highlighted with the address name and complete address with phone and email if available.
 
 Rules:
 - Pincodes must be exactly 6 digits.
@@ -306,41 +321,35 @@ If user says:
 
 def get_missing_shipment_fields():
     required = [
-        "customer_name",
-        "customer_phone",
         "address_line1",
         "product",
+        "quantity",
         "invoice_amount",
-        "quantity"
+        "noOfBoxes"
     ]
     return [f.replace("_", " ") for f in required if not conversation_state.get(f)]
 
 
 def extract_shipment_details(message):
 
-    if not conversation_state["customer_name"]:
-        conversation_state["customer_name"] = message.strip()
-        return
-
-    if not conversation_state["customer_phone"]:
-        conversation_state["customer_phone"] = re.sub(r"\D", "", message)
-        return
-
     if not conversation_state["address_line1"]:
         conversation_state["address_line1"] = message.strip()
         return
 
     if not conversation_state["product"]:
-        clean = re.sub(r"(product|prodcut)", "", message, flags=re.IGNORECASE)
-        conversation_state["product"] = clean.strip()
+        conversation_state["product"] = message.strip()
+        return
+
+    if not conversation_state["quantity"]:
+        conversation_state["quantity"] = re.sub(r"\D", "", message)
         return
 
     if not conversation_state["invoice_amount"]:
         conversation_state["invoice_amount"] = re.sub(r"[^\d.]", "", message)
         return
 
-    if not conversation_state["quantity"]:
-        conversation_state["quantity"] = re.sub(r"\D", "", message)
+    if not conversation_state["noOfBoxes"]:
+        conversation_state["noOfBoxes"] = re.sub(r"\D", "", message)
         return
 
 
@@ -367,17 +376,19 @@ def format_quote(result):
         "📦 Available Shipping Options:\n\n"
     )
 
+    options = []
+
     for i, s in enumerate(services, 1):
-        msg += (
-            f"{i}. 🚚 {s.get('carrierCode')} - {s.get('serviceDescription')}\n"
-            f"💰 ₹{s.get('totalCharges')}\n"
-            f"📅 {s.get('businessDaysInTransit')} days\n"
-            "----------------------------------\n"
-        )
+        label = f"{s.get('carrierCode')} - {s.get('serviceDescription')} \nINR {s.get('totalCharges')} \n{s.get('arrivalDate')} ({s.get('businessDaysInTransit')} days)"
+        options.append({
+            "label": label,
+            "value": str(i)
+        })
 
-    msg += "\nPlease type the option number to book shipment."
-
-    return {"response": msg}
+    return {
+        "response": msg,
+        "options": options
+    }
 
 
 def format_shipment(result):

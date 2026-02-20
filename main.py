@@ -20,9 +20,7 @@ def home():
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
 <style>
-body {
-    font-family: 'Segoe UI', sans-serif;
-}
+body { font-family: 'Segoe UI', sans-serif; }
 
 /* Floating Button */
 .chat-button {
@@ -40,32 +38,6 @@ body {
     cursor: pointer;
     font-size: 26px;
     box-shadow: 0 5px 15px rgba(0,0,0,0.3);
-    transition: 0.3s;
-}
-
-.chat-button:hover {
-    transform: scale(1.1);
-}
-
-/* Hi Badge */
-.hi-badge {
-    position: absolute;
-    top: -28px;
-    right: 0;
-    background: #ff4757;
-    color: white;
-    padding: 5px 10px;
-    border-radius: 20px;
-    font-size: 12px;
-    animation: zigzag 1.2s infinite;
-}
-
-@keyframes zigzag {
-    0% { transform: translateX(0); }
-    25% { transform: translateX(-5px); }
-    50% { transform: translateX(5px); }
-    75% { transform: translateX(-3px); }
-    100% { transform: translateX(0); }
 }
 
 /* Chat Box */
@@ -81,12 +53,6 @@ body {
     display: none;
     flex-direction: column;
     overflow: hidden;
-    animation: fadeIn 0.3s ease-in-out;
-}
-
-@keyframes fadeIn {
-    from { opacity: 0; transform: translateY(20px); }
-    to { opacity: 1; transform: translateY(0); }
 }
 
 /* Header */
@@ -95,7 +61,6 @@ body {
     color: white;
     padding: 15px;
     font-weight: bold;
-    font-size: 15px;
 }
 
 /* Messages */
@@ -111,11 +76,7 @@ body {
     padding: 12px;
     border-radius: 12px;
     margin-bottom: 10px;
-    max-width: 100%;
-    font-size: 14px;
     white-space: pre-line;
-    line-height: 1.6;
-    word-wrap: break-word;
 }
 
 .user {
@@ -126,44 +87,13 @@ body {
     margin-bottom: 8px;
     margin-left: auto;
     max-width: 80%;
-    font-size: 14px;
 }
 
-/* Typing Animation */
-.typing {
-    display: flex;
-    gap: 4px;
-    margin-bottom: 8px;
-}
-
-.dot {
-    width: 6px;
-    height: 6px;
-    background: gray;
-    border-radius: 50%;
-    animation: blink 1.4s infinite both;
-}
-
-.dot:nth-child(2) {
-    animation-delay: 0.2s;
-}
-
-.dot:nth-child(3) {
-    animation-delay: 0.4s;
-}
-
-@keyframes blink {
-    0% { opacity: .2; }
-    20% { opacity: 1; }
-    100% { opacity: .2; }
-}
-
-/* Input Area */
+/* Input */
 .chat-input {
     display: flex;
     padding: 10px;
     border-top: 1px solid #eee;
-    background: white;
 }
 
 .chat-input input {
@@ -171,7 +101,6 @@ body {
     padding: 10px;
     border-radius: 8px;
     border: 1px solid #ccc;
-    font-size: 14px;
 }
 
 .chat-input button {
@@ -182,22 +111,29 @@ body {
     background: #007bff;
     color: white;
     cursor: pointer;
+}
+
+.option-btn {
+    margin: 6px 0;
+    padding: 10px;
+    border-radius: 10px;
+    border: none;
+    cursor: pointer;
+    background: #e4e6eb;
+    width: 100%;
+    text-align: left;
     transition: 0.2s;
 }
 
-.chat-input button:hover {
-    background: #0056b3;
+.option-btn:hover {
+    background: #d8dbe0;
 }
-
 </style>
 </head>
 
 <body>
 
-<div class="chat-button" onclick="toggleChat()">
-    💬
-    <div class="hi-badge" id="hiBadge">Hi 👋</div>
-</div>
+<div class="chat-button" onclick="toggleChat()">💬</div>
 
 <div class="chat-box" id="chatBox">
     <div class="chat-header">
@@ -209,7 +145,8 @@ body {
     </div>
 
     <div class="chat-input">
-        <input type="text" id="messageInput" placeholder="Ask about quote or tracking..."
+        <input type="text" id="messageInput"
+        placeholder="Ask about quote or tracking..."
         onkeydown="if(event.key==='Enter'){sendMessage();}">
         <button onclick="sendMessage()">Send</button>
     </div>
@@ -219,19 +156,30 @@ body {
 
 function toggleChat() {
     let box = document.getElementById("chatBox");
-    let badge = document.getElementById("hiBadge");
+    box.style.display = box.style.display === "flex" ? "none" : "flex";
+    box.style.flexDirection = "column";
+}
 
-    if (box.style.display === "flex") {
-        box.style.display = "none";
-        badge.style.display = "block";
-    } else {
-        box.style.display = "flex";
-        box.style.flexDirection = "column";
-        badge.style.display = "none";
-    }
+async function sendOption(value, label) {
+
+    let messagesDiv = document.getElementById("messages");
+
+    // Show selected label (NOT number)
+    messagesDiv.innerHTML += `<div class="user">✅ Selected: ${label}</div>`;
+    messagesDiv.scrollTop = messagesDiv.scrollHeight;
+
+    let response = await fetch("/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: value })
+    });
+
+    let data = await response.json();
+    renderBotResponse(data);
 }
 
 async function sendMessage() {
+
     let input = document.getElementById("messageInput");
     let message = input.value.trim();
     if (!message) return;
@@ -242,14 +190,6 @@ async function sendMessage() {
     input.value = "";
     messagesDiv.scrollTop = messagesDiv.scrollHeight;
 
-    // Typing animation
-    let typing = document.createElement("div");
-    typing.className = "typing";
-    typing.id = "typing";
-    typing.innerHTML = "<div class='dot'></div><div class='dot'></div><div class='dot'></div>";
-    messagesDiv.appendChild(typing);
-    messagesDiv.scrollTop = messagesDiv.scrollHeight;
-
     let response = await fetch("/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -257,12 +197,34 @@ async function sendMessage() {
     });
 
     let data = await response.json();
+    renderBotResponse(data);
+}
 
-    document.getElementById("typing").remove();
+function renderBotResponse(data) {
 
-    let botReply = data.response || "Something went wrong.";
+    let messagesDiv = document.getElementById("messages");
 
-    messagesDiv.innerHTML += `<div class="bot">${botReply}</div>`;
+    let botDiv = document.createElement("div");
+    botDiv.className = "bot";
+    botDiv.innerText = data.response || "Something went wrong.";
+    messagesDiv.appendChild(botDiv);
+
+    // Create option buttons (do NOT remove old content)
+    if (data.options && data.options.length > 0) {
+        data.options.forEach(option => {
+
+            let btn = document.createElement("button");
+            btn.className = "option-btn";
+            btn.innerText = option.label;
+
+            btn.onclick = function () {
+                sendOption(option.value, option.label);
+            };
+
+            messagesDiv.appendChild(btn);
+        });
+    }
+
     messagesDiv.scrollTop = messagesDiv.scrollHeight;
 }
 

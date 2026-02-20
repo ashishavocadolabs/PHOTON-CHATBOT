@@ -243,6 +243,7 @@ def create_shipment(state):
     url = f"{BASE_URL}/api/Shipping/QuickShip"
 
     try:
+        noOfBoxes = int(state.get("noOfBoxes"))
         quantity = int(state.get("quantity"))
         invoice_amount = float(state.get("invoice_amount"))
         weight = float(state.get("weight"))
@@ -266,7 +267,7 @@ def create_shipment(state):
         "shipToCity": to_details.get("city"),
         "shipToState": to_details.get("state"),
         "shipToCountry": "IN",
-        "noOfBoxes": 1,
+        "noOfBoxes": noOfBoxes,
         "weight": weight,
         "length": length,
         "width": width,
