@@ -7,6 +7,7 @@ from services.shipping_service import (
     get_quote,
     get_tracking,
     create_shipment,
+    get_all_shipto_addresses,
     get_default_warehouse
 )
 
@@ -45,14 +46,47 @@ conversation_state = {
     "invoice_amount": None,
     "quantity": None,
     "noOfBoxes": None,
+
+    # ship
+    "available_shipto": [],
+    "shipto": None,
+    "shipto_selection_mode": False,
 }
 
 
 #reset conversation state except quote details
 
 def reset_state():
-    for key in conversation_state:
-        conversation_state[key] = None
+    conversation_state.update({
+        "from_pincode": None,
+        "to_pincode": None,
+        "weight": None,
+        "length": None,
+        "width": None,
+        "height": None,
+
+        "available_services": [],
+        "carrierId": None,
+        "serviceId": None,
+
+        "available_warehouses": [],
+        "warehouse": None,
+        "warehouse_selection_mode": False,
+
+        "customer_name": None,
+        "customer_phone": None,
+        "customer_email": None,
+        "address_line1": None,
+
+        "product": None,
+        "invoice_amount": None,
+        "quantity": None,
+        "noOfBoxes": None,
+
+        "available_shipto": [],
+        "shipto": None,
+        "shipto_selection_mode": False,
+    })
 
     conversation_state["available_services"] = []
     conversation_state["available_warehouses"] = []
@@ -65,7 +99,7 @@ def handle_chat(user_message):
     try:
         user_message = user_message.strip()
 
-        #warehouse selection flow
+        # ================= WAREHOUSE SELECTION FLOW =================
         if conversation_state["warehouse_selection_mode"] and user_message.isdigit():
 
             index = int(user_message)
@@ -77,6 +111,49 @@ def handle_chat(user_message):
             conversation_state["warehouse"] = warehouses[index - 1]
             conversation_state["warehouse_selection_mode"] = False
 
+            # AFTER Ship From → Ask Ship To
+            shipto_list = get_all_shipto_addresses()
+
+            if not shipto_list:
+                return {"response": "No Ship To addresses found."}
+
+            conversation_state["available_shipto"] = shipto_list
+            conversation_state["shipto_selection_mode"] = True
+
+            options = []
+
+            for i, s in enumerate(shipto_list, 1):
+                label = (
+                    f"{('ShipTo:' + s.get('addressName', ''))} - "
+                    f"{s.get('city')} ({s.get('state')}, {s.get('postalCode')}), {s.get('country')}\n"
+                    f"{('Address:' + s.get('address1', ''))} {s.get('address2')}\n"
+                    f"Phone: {s.get('phone') if s.get('phone') else ''}\n"
+                    f"Email: {s.get('emailId') if s.get('emailId') else ''}"
+                )
+
+                options.append({
+                    "label": label,
+                    "value": str(i)
+                })
+
+            return {
+                "response": "🏠 Select Ship To Address:",
+                "options": options
+            }
+
+        # ================= SHIP TO SELECTION FLOW =================
+        if conversation_state["shipto_selection_mode"] and user_message.isdigit():
+
+            index = int(user_message)
+            shipto_list = conversation_state["available_shipto"]
+
+            if index < 1 or index > len(shipto_list):
+                return {"response": "Invalid Ship To selection."}
+
+            conversation_state["shipto"] = shipto_list[index - 1]
+            conversation_state["shipto_selection_mode"] = False
+
+            # NOW create shipment
             result = create_shipment(conversation_state)
             response = format_shipment(result)
 
@@ -85,13 +162,12 @@ def handle_chat(user_message):
 
             return response
 
-        #courier selection flow
+        # ================= COURIER SELECTION FLOW =================
         if (
             conversation_state["available_services"]
             and not conversation_state.get("carrierId")
             and user_message.isdigit()
         ):
-
 
             index = int(user_message)
             services = conversation_state["available_services"]
@@ -106,14 +182,13 @@ def handle_chat(user_message):
             return {
                 "response":
                 "📦 Please provide shipment details step-by-step:\n\n"
-                "1️⃣ Ship To Address\n"
-                "2️⃣ Product Name\n"
-                "3️⃣ Quantity\n"
-                "4️⃣ Invoice Amount\n"
-                "5️⃣ Number of Boxes"
+                "1️⃣ Product Name\n"
+                "2️⃣ Quantity\n"
+                "3️⃣ Invoice Amount\n"
+                "4️⃣ Number of Boxes"
             }
 
-       #shipment detail collection flow
+        # shipment details collection flow
         if conversation_state.get("carrierId") and not conversation_state["warehouse_selection_mode"]:
 
             extract_shipment_details(user_message)
@@ -135,20 +210,16 @@ def handle_chat(user_message):
             )
             conversation_state["warehouse_selection_mode"] = True
 
-
-            if not warehouse:
-                return {"response": "No warehouse found."}
-
-            conversation_state["available_warehouses"] = (
-                [warehouse] if isinstance(warehouse, dict) else warehouse
-            )
-
-            conversation_state["warehouse_selection_mode"] = True
-
             options = []
 
             for i, w in enumerate(conversation_state["available_warehouses"], 1):
-                label = f"{'Warehouse: ' + w.get('addressName')} - {w.get('city')} ({w.get('state')}, {w.get('postalCode')}), {w.get('country')} \n {'Address: ' + w.get('address1')} - {w.get('address2')} \n {'Phone: ' + w.get('phone') if w.get('phone') else ''} \n{'Email: ' + w.get('emailId') if w.get('emailId') else ''}"
+                label = (
+                    f"Warehouse: {w.get('addressName')} - "
+                    f"{w.get('city')} ({w.get('state')}, {w.get('postalCode')}), {w.get('country')}\n"
+                    f"Address: {w.get('address1')} - {w.get('address2')}\n"
+                    f"Phone: {w.get('phone') if w.get('phone') else ''}\n"
+                    f"Email: {w.get('emailId') if w.get('emailId') else ''}"
+                )
 
                 options.append({
                     "label": label,
@@ -160,7 +231,7 @@ def handle_chat(user_message):
                 "options": options
             }
 
-        #prompt engineering with strict rules for quote and tracking
+        # AI RESPONSE GENERATION WITH TOOL CALLS
 
         SYSTEM_PROMPT = """
 First you start Gretting!.......
