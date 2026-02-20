@@ -289,6 +289,13 @@ If user says:
 "help" or "quotation"
 → Ask:
 "Please provide from pincode, to pincode, weight (kg) and dimensions (L x W x H in cm)."
+
+greeting if user says hi, hello, hey etc
+If user says "hi", "hello", "hey" → respond with greeting message and brief intro about your capabilities.
+
+if user says "Thank you" or "Thanks" or "Bye" or "Goodbye" → respond with a polite closing message and reset the conversation state for a new session.
+
+if user says "Thank you or Thanks or Thank you so much or Thank and related Thank you words with other message help or asking related to tracking and quote or shipping → respond with a polite closing message and reset the conversation state for a new session.
 """
 
         response = client.chat.completions.create(

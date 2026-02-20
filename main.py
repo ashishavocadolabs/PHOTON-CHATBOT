@@ -5,10 +5,8 @@ from core.ai_orchestrator import handle_chat
 
 app = FastAPI()
 
-
 class ChatRequest(BaseModel):
     message: str
-
 
 @app.get("/", response_class=HTMLResponse)
 def home():
@@ -20,113 +18,188 @@ def home():
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
 <style>
-body { font-family: 'Segoe UI', sans-serif; }
+body {
+    margin:0;
+    font-family: 'Segoe UI', sans-serif;
+    background: radial-gradient(circle at top, #0f2027, #203a43, #2c5364);
+}
 
 /* Floating Button */
 .chat-button {
     position: fixed;
-    bottom: 20px;
-    right: 20px;
-    background: linear-gradient(135deg, #007bff, #0056b3);
+    bottom: 25px;
+    right: 25px;
+    background: linear-gradient(135deg,#00f2fe,#4facfe);
     color: white;
     border-radius: 50%;
-    width: 65px;
-    height: 65px;
+    width: 70px;
+    height: 70px;
     display: flex;
     align-items: center;
     justify-content: center;
     cursor: pointer;
-    font-size: 26px;
-    box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+    font-size: 28px;
+    box-shadow: 0 0 20px #00f2fe;
 }
 
 /* Chat Box */
 .chat-box {
     position: fixed;
-    bottom: 100px;
-    right: 20px;
-    width: 360px;
-    height: 520px;
-    background: white;
-    border-radius: 15px;
-    box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+    bottom: 110px;
+    right: 25px;
+    width: 400px;
+    height: 600px;
+    background: rgba(10,20,30,0.95);
+    border-radius: 20px;
+    box-shadow: 0 0 30px #00f2fe;
     display: none;
     flex-direction: column;
     overflow: hidden;
 }
 
-/* Header */
+/* HEADER */
 .chat-header {
-    background: linear-gradient(135deg, #007bff, #0056b3);
-    color: white;
-    padding: 15px;
+    height: 80px;
+    background: linear-gradient(90deg,#00f2fe,#4facfe);
+    position: relative;
+    overflow:hidden;
+}
+
+/* ===== LOGO ANIMATION AREA ===== */
+.logo-area {
+    position: relative;
+    height: 100%;
+}
+
+/* Box */
+.box-icon {
+    position: absolute;
+    left: 20px;
+    top: 25px;
+    font-size: 26px;
+    opacity: 0;
+}
+
+/* Hi Text */
+.hi-text {
+    position: absolute;
+    left: 65px;
+    top: 28px;
     font-weight: bold;
+    font-size: 16px;
+    white-space: nowrap;
+    opacity: 0;
+}
+
+/* Truck */
+.truck-icon {
+    position: absolute;
+    right: 20px;
+    top: 25px;
+    font-size: 26px;
+    opacity: 0;
+}
+
+/* Animations */
+@keyframes jumpBox {
+    0% { transform: translateY(20px); opacity:0; }
+    50% { transform: translateY(-12px); opacity:1; }
+    100% { transform: translateY(0); opacity:1; }
+}
+
+@keyframes slideIn {
+    from { transform: translateX(-40px); opacity:0; }
+    to { transform: translateX(0); opacity:1; }
+}
+
+@keyframes swipeOut {
+    from { transform: translateX(0); opacity:1; }
+    to { transform: translateX(120%); opacity:0; }
 }
 
 /* Messages */
 .chat-messages {
-    flex: 1;
-    padding: 12px;
-    overflow-y: auto;
-    background: #f4f6f9;
+    flex:1;
+    padding:15px;
+    overflow-y:auto;
+    background:#0f2027;
+    color:white;
 }
 
-.bot {
-    background: #e4e6eb;
-    padding: 12px;
-    border-radius: 12px;
-    margin-bottom: 10px;
+.bot, .user {
+    padding:12px;
+    border-radius:15px;
+    margin-bottom:10px;
     white-space: pre-line;
 }
 
+.bot {
+    background:#1e2a38;
+    border:1px solid #00f2fe;
+}
+
 .user {
-    background: #007bff;
-    color: white;
-    padding: 10px;
-    border-radius: 10px;
-    margin-bottom: 8px;
-    margin-left: auto;
-    max-width: 80%;
+    background:#00f2fe;
+    color:black;
+    margin-left:auto;
+}
+
+/* Typing */
+.typing span {
+    height:8px;
+    width:8px;
+    background:#00f2fe;
+    border-radius:50%;
+    display:inline-block;
+    margin:0 2px;
+    animation:bounce 1.4s infinite;
+}
+.typing span:nth-child(2){animation-delay:0.2s;}
+.typing span:nth-child(3){animation-delay:0.4s;}
+
+@keyframes bounce {
+    0%,80%,100% { transform:scale(0);}
+    40% { transform:scale(1);}
 }
 
 /* Input */
 .chat-input {
-    display: flex;
-    padding: 10px;
-    border-top: 1px solid #eee;
+    display:flex;
+    padding:12px;
+    background:#16222a;
 }
 
 .chat-input input {
-    flex: 1;
-    padding: 10px;
-    border-radius: 8px;
-    border: 1px solid #ccc;
+    flex:1;
+    padding:10px;
+    border-radius:10px;
+    border:none;
+    outline:none;
 }
 
 .chat-input button {
-    margin-left: 6px;
-    padding: 10px 14px;
-    border-radius: 8px;
-    border: none;
-    background: #007bff;
-    color: white;
-    cursor: pointer;
+    margin-left:8px;
+    padding:10px 15px;
+    border-radius:10px;
+    border:none;
+    background:#00f2fe;
+    cursor:pointer;
 }
 
+/* Options */
 .option-btn {
-    margin: 6px 0;
-    padding: 10px;
-    border-radius: 10px;
-    border: none;
-    cursor: pointer;
-    background: #e4e6eb;
-    width: 100%;
-    text-align: left;
-    transition: 0.2s;
+    margin:6px 0;
+    padding:10px;
+    border-radius:10px;
+    border:none;
+    background:#1e2a38;
+    color:white;
+    border:1px solid #00f2fe;
+    cursor:pointer;
 }
-
 .option-btn:hover {
-    background: #d8dbe0;
+    background:#00f2fe;
+    color:black;
 }
 </style>
 </head>
@@ -136,12 +209,17 @@ body { font-family: 'Segoe UI', sans-serif; }
 <div class="chat-button" onclick="toggleChat()">💬</div>
 
 <div class="chat-box" id="chatBox">
+
     <div class="chat-header">
-        Photon AI Logistics Assistant 🚀
+        <div class="logo-area">
+            <div class="box-icon" id="boxIcon">📦</div>
+            <div class="hi-text" id="hiText">Hi 👋 Welcome to Photon AI</div>
+            <div class="truck-icon" id="truckIcon">🚚</div>
+        </div>
     </div>
 
     <div class="chat-messages" id="messages">
-        <div class="bot">Hi 👋 How can I help you today?</div>
+        <div class="bot">Hello 👋 I am your AI Logistics Assistant. How can I help you today?</div>
     </div>
 
     <div class="chat-input">
@@ -150,32 +228,80 @@ body { font-family: 'Segoe UI', sans-serif; }
         onkeydown="if(event.key==='Enter'){sendMessage();}">
         <button onclick="sendMessage()">Send</button>
     </div>
+
 </div>
 
 <script>
 
+/* Toggle Chat */
 function toggleChat() {
     let box = document.getElementById("chatBox");
     box.style.display = box.style.display === "flex" ? "none" : "flex";
     box.style.flexDirection = "column";
 }
 
-async function sendOption(value, label) {
+/* ===== HEADER LOOP ANIMATION ===== */
+function startHeaderLoop(){
 
+    const box = document.getElementById("boxIcon");
+    const hi = document.getElementById("hiText");
+    const truck = document.getElementById("truckIcon");
+
+    function run(){
+
+        box.style.opacity = 0;
+        hi.style.opacity = 0;
+        truck.style.opacity = 0;
+
+        box.style.animation = "none";
+        hi.style.animation = "none";
+        truck.style.animation = "none";
+
+        void box.offsetWidth;
+
+        // Box Jump
+        box.style.animation = "jumpBox 0.6s forwards";
+
+        // Hi Show
+        setTimeout(()=>{
+            hi.style.animation = "slideIn 0.6s forwards";
+        },800);
+
+        // Truck Show
+        setTimeout(()=>{
+            truck.style.animation = "slideIn 0.6s forwards";
+        },1200);
+
+        // Swipe Remove
+        setTimeout(()=>{
+            hi.style.animation = "swipeOut 0.8s forwards";
+            truck.style.animation = "swipeOut 0.8s forwards";
+        },3000);
+
+    }
+
+    run();
+    setInterval(run,6000);
+}
+
+startHeaderLoop();
+
+/* ===== CHAT FUNCTIONS ===== */
+
+function showTyping(){
     let messagesDiv = document.getElementById("messages");
+    let typingDiv = document.createElement("div");
+    typingDiv.className = "bot";
+    typingDiv.id = "typing";
+    typingDiv.innerHTML = `<div class="typing">
+        <span></span><span></span><span></span>
+    </div>`;
+    messagesDiv.appendChild(typingDiv);
+}
 
-    // Show selected label (NOT number)
-    messagesDiv.innerHTML += `<div class="user">✅ Selected: ${label}</div>`;
-    messagesDiv.scrollTop = messagesDiv.scrollHeight;
-
-    let response = await fetch("/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: value })
-    });
-
-    let data = await response.json();
-    renderBotResponse(data);
+function removeTyping(){
+    let typingDiv = document.getElementById("typing");
+    if(typingDiv) typingDiv.remove();
 }
 
 async function sendMessage() {
@@ -185,10 +311,9 @@ async function sendMessage() {
     if (!message) return;
 
     let messagesDiv = document.getElementById("messages");
-
     messagesDiv.innerHTML += `<div class="user">${message}</div>`;
     input.value = "";
-    messagesDiv.scrollTop = messagesDiv.scrollHeight;
+    showTyping();
 
     let response = await fetch("/chat", {
         method: "POST",
@@ -197,6 +322,7 @@ async function sendMessage() {
     });
 
     let data = await response.json();
+    removeTyping();
     renderBotResponse(data);
 }
 
@@ -209,7 +335,6 @@ function renderBotResponse(data) {
     botDiv.innerText = data.response || "Something went wrong.";
     messagesDiv.appendChild(botDiv);
 
-    // Create option buttons (do NOT remove old content)
     if (data.options && data.options.length > 0) {
         data.options.forEach(option => {
 
@@ -228,12 +353,28 @@ function renderBotResponse(data) {
     messagesDiv.scrollTop = messagesDiv.scrollHeight;
 }
 
+async function sendOption(value, label) {
+
+    let messagesDiv = document.getElementById("messages");
+    messagesDiv.innerHTML += `<div class="user">✅ ${label}</div>`;
+    showTyping();
+
+    let response = await fetch("/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: value })
+    });
+
+    let data = await response.json();
+    removeTyping();
+    renderBotResponse(data);
+}
+
 </script>
 
 </body>
 </html>
 """
-
 
 @app.post("/chat")
 async def chat(request: ChatRequest):
