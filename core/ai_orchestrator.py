@@ -368,8 +368,8 @@ def format_quote(result):
     conversation_state["available_services"] = services
 
     msg = (
-        f"📍 From: {result['from_details']['city']} ({result['from_details']['state']})\n"
-        f"📍 To: {result['to_details']['city']} ({result['to_details']['state']})\n\n"
+        f"📍 From: {result['from_details']['city']} ({result['from_details']['state']}), {result['from_details']['country']}\n"
+        f"📍 To: {result['to_details']['city']} ({result['to_details']['state']}), {result['to_details']['country']}\n\n"
         f"⚖️ Weight: {conversation_state['weight']} kg\n"
         f"📏 Dimensions: {conversation_state['length']} x "
         f"{conversation_state['width']} x {conversation_state['height']} cm\n\n"
