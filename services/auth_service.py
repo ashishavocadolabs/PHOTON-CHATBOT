@@ -76,6 +76,12 @@ def login():
 
     print("EXTRACTED USER ID:", token_cache["user_id"])
 
+    #  Fetch actual full name from API
+    if token_cache["user_id"]:
+        full_name = fetch_user_details(token_cache["user_id"])
+        if full_name:
+            token_cache["name"] = full_name
+
     return token
 
 
@@ -98,3 +104,32 @@ def get_logged_user_name():
     if not token_cache["token"]:
         login()
     return token_cache.get("name") or "User"
+
+def fetch_user_details(user_id):
+    try:
+        if not token_cache["token"]:
+            return None
+
+        url = f"{BASE_URL}/api/Admin/GetUsersById"
+        params = {"UserId": user_id}
+
+        headers = {
+            "Authorization": f"Bearer {token_cache['token']}",
+            "Content-Type": "application/json"
+        }
+
+        response = requests.get(url, params=params, headers=headers)
+
+        if response.status_code != 200:
+            return None
+
+        data = response.json().get("data", {})
+
+        # Debug print (temporary)
+        print("USER DETAILS API RESPONSE:", data)
+
+        return data.get("fullName")
+
+    except Exception as e:
+        print("FETCH USER ERROR:", e)
+        return None
