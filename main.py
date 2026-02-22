@@ -2,15 +2,18 @@ from fastapi import FastAPI
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 from core.ai_orchestrator import handle_chat
+from services.auth_service import get_logged_user_name
 
 app = FastAPI()
 
 class ChatRequest(BaseModel):
     message: str
 
+
 @app.get("/", response_class=HTMLResponse)
 def home():
-    return """
+    name = get_logged_user_name() or "User"
+    html_content = """
 <!DOCTYPE html>
 <html>
 <head>
@@ -40,6 +43,10 @@ body {
     cursor: pointer;
     font-size: 28px;
     box-shadow: 0 0 20px #00f2fe;
+    transition:0.3s;
+}
+.chat-button.listening {
+    box-shadow:0 0 30px red;
 }
 
 /* Chat Box */
@@ -59,45 +66,39 @@ body {
 
 /* HEADER */
 .chat-header {
-    height: 80px;
+    height: 60px;
     background: linear-gradient(90deg,#00f2fe,#4facfe);
-    position: relative;
-    overflow:hidden;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-size:16px;
+    font-weight:600;
+    padding:0 10px;
 }
 
 /* ===== LOGO ANIMATION AREA ===== */
 .logo-area {
-    position: relative;
-    height: 100%;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    width:100%;
+    padding:0 15px;
 }
 
-/* Box */
-.box-icon {
-    position: absolute;
-    left: 20px;
-    top: 25px;
-    font-size: 26px;
-    opacity: 0;
+.box-icon, .truck-icon {
+    position:relative;
+    top:0;
+    left:0;
+    right:0;
+    font-size:20px;
+    opacity:1;
 }
 
-/* Hi Text */
 .hi-text {
-    position: absolute;
-    left: 65px;
-    top: 28px;
-    font-weight: bold;
-    font-size: 16px;
-    white-space: nowrap;
-    opacity: 0;
-}
-
-/* Truck */
-.truck-icon {
-    position: absolute;
-    right: 20px;
-    top: 25px;
-    font-size: 26px;
-    opacity: 0;
+    position:relative;
+    font-size:14px;
+    font-weight:600;
+    opacity:1;
 }
 
 /* Animations */
@@ -131,6 +132,12 @@ body {
     border-radius:15px;
     margin-bottom:10px;
     white-space: pre-line;
+    animation:fadeIn 0.3s ease-in;
+}
+
+@keyframes fadeIn {
+    from{opacity:0; transform:translateY(10px);}
+    to{opacity:1; transform:translateY(0);}
 }
 
 .bot {
@@ -165,25 +172,32 @@ body {
 /* Input */
 .chat-input {
     display:flex;
-    padding:12px;
+    align-items:center;
+    padding:10px;
     background:#16222a;
+    gap:8px;
 }
 
 .chat-input input {
     flex:1;
-    padding:10px;
-    border-radius:10px;
+    padding:12px;
+    border-radius:25px;
     border:none;
     outline:none;
+    font-size:14px;
 }
 
 .chat-input button {
-    margin-left:8px;
-    padding:10px 15px;
-    border-radius:10px;
+    width:45px;
+    height:45px;
+    border-radius:50%;
     border:none;
     background:#00f2fe;
     cursor:pointer;
+    font-size:16px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
 }
 
 /* Options */
@@ -206,7 +220,7 @@ body {
 
 <body>
 
-<div class="chat-button" onclick="toggleChat()">💬</div>
+<div class="chat-button" id="chatBtn" onclick="toggleChat()">💬</div>
 
 <div class="chat-box" id="chatBox">
 
@@ -219,14 +233,15 @@ body {
     </div>
 
     <div class="chat-messages" id="messages">
-        <div class="bot">Hello 👋 I am your AI Logistics Assistant. How can I help you today?</div>
+        <div class="bot">Hello 👋 I am your AI Logistics Assistant. Speak Hindi or English. Say "Hey Photon" to activate voice.</div>
     </div>
 
     <div class="chat-input">
+        <button onclick="toggleVoice()">🎙</button>
         <input type="text" id="messageInput"
         placeholder="Ask about quote or tracking..."
         onkeydown="if(event.key==='Enter'){sendMessage();}">
-        <button onclick="sendMessage()">Send</button>
+        <button onclick="sendMessage()">➤</button>
     </div>
 
 </div>
@@ -240,15 +255,13 @@ function toggleChat() {
     box.style.flexDirection = "column";
 }
 
-/* ===== HEADER LOOP ANIMATION ===== */
+/* HEADER LOOP ANIMATION (unchanged) */
 function startHeaderLoop(){
-
     const box = document.getElementById("boxIcon");
     const hi = document.getElementById("hiText");
     const truck = document.getElementById("truckIcon");
 
     function run(){
-
         box.style.opacity = 0;
         hi.style.opacity = 0;
         truck.style.opacity = 0;
@@ -259,35 +272,21 @@ function startHeaderLoop(){
 
         void box.offsetWidth;
 
-        // Box Jump
         box.style.animation = "jumpBox 0.6s forwards";
-
-        // Hi Show
-        setTimeout(()=>{
-            hi.style.animation = "slideIn 0.6s forwards";
-        },800);
-
-        // Truck Show
-        setTimeout(()=>{
-            truck.style.animation = "slideIn 0.6s forwards";
-        },1200);
-
-        // Swipe Remove
+        setTimeout(()=>{ hi.style.animation = "slideIn 0.6s forwards"; },800);
+        setTimeout(()=>{ truck.style.animation = "slideIn 0.6s forwards"; },1200);
         setTimeout(()=>{
             hi.style.animation = "swipeOut 0.8s forwards";
             truck.style.animation = "swipeOut 0.8s forwards";
         },3000);
-
     }
 
     run();
     setInterval(run,6000);
 }
-
 startHeaderLoop();
 
-/* ===== CHAT FUNCTIONS ===== */
-
+/* Typing Indicator */
 function showTyping(){
     let messagesDiv = document.getElementById("messages");
     let typingDiv = document.createElement("div");
@@ -304,8 +303,8 @@ function removeTyping(){
     if(typingDiv) typingDiv.remove();
 }
 
+/* Send Message */
 async function sendMessage() {
-
     let input = document.getElementById("messageInput");
     let message = input.value.trim();
     if (!message) return;
@@ -326,8 +325,8 @@ async function sendMessage() {
     renderBotResponse(data);
 }
 
+/* Render Bot */
 function renderBotResponse(data) {
-
     let messagesDiv = document.getElementById("messages");
 
     let botDiv = document.createElement("div");
@@ -335,17 +334,16 @@ function renderBotResponse(data) {
     botDiv.innerText = data.response || "Something went wrong.";
     messagesDiv.appendChild(botDiv);
 
+    speakText(data.response);
+
     if (data.options && data.options.length > 0) {
         data.options.forEach(option => {
-
             let btn = document.createElement("button");
             btn.className = "option-btn";
             btn.innerText = option.label;
-
             btn.onclick = function () {
                 sendOption(option.value, option.label);
             };
-
             messagesDiv.appendChild(btn);
         });
     }
@@ -354,7 +352,6 @@ function renderBotResponse(data) {
 }
 
 async function sendOption(value, label) {
-
     let messagesDiv = document.getElementById("messages");
     messagesDiv.innerHTML += `<div class="user">✅ ${label}</div>`;
     showTyping();
@@ -370,11 +367,68 @@ async function sendOption(value, label) {
     renderBotResponse(data);
 }
 
+/* ================= VOICE SYSTEM ================= */
+
+let recognition;
+let listening=false;
+let wakeWord="hey photon";
+
+function toggleVoice(){
+    if(listening){
+        recognition.stop();
+        listening=false;
+        document.getElementById("chatBtn").classList.remove("listening");
+    }else{
+        startVoice();
+    }
+}
+
+function startVoice(){
+    if(!('webkitSpeechRecognition' in window)){
+        alert("Speech not supported in this browser");
+        return;
+    }
+
+    recognition=new webkitSpeechRecognition();
+    recognition.lang="en-US";
+    recognition.continuous=true;
+    recognition.interimResults=false;
+    recognition.start();
+
+    listening=true;
+    document.getElementById("chatBtn").classList.add("listening");
+
+    recognition.onresult=function(event){
+        let transcript=event.results[event.results.length-1][0].transcript.toLowerCase();
+
+        if(transcript.includes(wakeWord)){
+            speakText("Yes {name}, I am listening.");
+            return;
+        }
+
+        document.getElementById("messageInput").value=transcript;
+        sendMessage();
+    };
+}
+
+/* Text To Speech */
+function speakText(text){
+    if(!text) return;
+
+    window.speechSynthesis.cancel();
+
+    let speech=new SpeechSynthesisUtterance(text);
+    speech.lang="en-US";
+    speech.rate=1;
+    window.speechSynthesis.speak(speech);
+}
+
 </script>
 
 </body>
 </html>
 """
+    return html_content.replace("{name}", name)
 
 @app.post("/chat")
 async def chat(request: ChatRequest):

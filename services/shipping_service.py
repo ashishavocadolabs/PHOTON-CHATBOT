@@ -1,12 +1,11 @@
 import requests
 import json
-from services.auth_service import get_headers, login
+from services.auth_service import get_headers, login, get_logged_user_id
 
 BASE_URL = "https://api.shipphoton.com"
 DEBUG = True  # Turn OFF in production
 
-
-# debug logger to print structured logs for easier debugging (can be enhanced to log to files or external logging services)
+#debug logger
 def debug_log(title, data=None):
     if DEBUG:
         print(f"\n========== {title} ==========")
@@ -18,7 +17,7 @@ def debug_log(title, data=None):
         print("================================\n")
 
 
-# safe API request with automatic token refresh and error handling
+#safe request with auto token refresh
 def safe_request(method, url, **kwargs):
     try:
         debug_log("API REQUEST", {
@@ -49,7 +48,7 @@ def safe_request(method, url, **kwargs):
         return {"error": f"Network error: {str(e)}"}
 
 
-# get pincode details
+#get pincode details
 def get_pincode_details(pincode):
     url = f"{BASE_URL}/api/Common/GetPincodeDetails"
     params = {"pincode": str(pincode), "country": "IN"}
@@ -80,7 +79,7 @@ def get_pincode_details(pincode):
         return None
 
 
-# get quote for given details
+#get quote API
 def get_quote(from_pincode, to_pincode, weight, length, width, height):
 
     from_details = get_pincode_details(from_pincode)
@@ -126,7 +125,7 @@ def get_quote(from_pincode, to_pincode, weight, length, width, height):
     return quote_data
 
 
-# grt all warehouses for the user
+#GET ALL ACTIVE SHIPFROM WAREHOUSES
 def get_all_warehouses():
     url = f"{BASE_URL}/api/Common/AddressList"
     params = {"AddressType": "ShipFrom"}
@@ -137,13 +136,18 @@ def get_all_warehouses():
         return []
 
     data = response.json().get("data", [])
-    active = [w for w in data if w.get("isActive")]
+
+    active = [
+        w for w in data
+        if w.get("isActive")
+        and str(w.get("addressType", "")).lower() == "shipfrom"
+    ]
 
     debug_log("ALL ACTIVE WAREHOUSES", active)
     return active
 
 
-# get all shipto addresses for the user
+#GET ALL ACTIVE SHIPTO ADDRESSES FOR LOGGED IN USER
 def get_all_shipto_addresses():
     url = f"{BASE_URL}/api/Common/AddressList"
     params = {"AddressType": "ShipTo"}
@@ -154,32 +158,34 @@ def get_all_shipto_addresses():
         return []
 
     data = response.json().get("data", [])
-    active = [a for a in data if a.get("isActive")]
+    user_id = get_logged_user_id()
 
-    debug_log("ALL ACTIVE SHIPTO ADDRESSES", active)
+    active = [
+        a for a in data
+        if a.get("isActive")
+        and str(a.get("addressType", "")).lower() == "shipto"
+        and a.get("createdBy") == user_id
+    ]
+
+    debug_log("USER SHIPTO ADDRESSES", active)
     return active
 
 
-# get default warehouse (if only one or priority/default marked) and shipto address (if only one or priority/default marked)
+#default warehouse selection logic
 def get_default_warehouse():
-    url = f"{BASE_URL}/api/Common/AddressList"
-    params = {"AddressType": "ShipFrom"}
+    warehouses = get_all_warehouses()
 
-    response = safe_request("GET", url, params=params, headers=get_headers())
-
-    if isinstance(response, dict) or response.status_code != 200:
+    if not warehouses:
         return None
 
-    data = response.json().get("data", [])
+    for w in warehouses:
+        if w.get("priority") or w.get("isDefault"):
+            return w
 
-    for address in data:
-        if address.get("priority") or address.get("isDefault"):
-            return address
-
-    return data[0] if data else None
+    return warehouses[0]
 
 
-# create shipment
+#create shipment
 def create_shipment(state):
 
     warehouse = state.get("warehouse")
@@ -217,22 +223,19 @@ def create_shipment(state):
         "quantity": quantity,
         "invoiceAmount": invoice_amount,
 
-        # Ship From
         "shipFromAddressName": warehouse.get("addressName"),
         "organization": warehouse.get("name"),
         "shipFromPincode": warehouse.get("postalCode"),
 
-        # Ship To (API FETCHED)
         "shipToName": shipto.get("name"),
         "shipToPhone": shipto.get("phone"),
         "shipToEmail": shipto.get("emailId"),
         "shipToAddress": shipto.get("address1"),
         "shipToPincode": shipto.get("postalCode"),
-        "shipToCity": shipto.get("city") or shipto.get("cityName"),
-        "shipToState": shipto.get("state") or shipto.get("stateCode"),
+        "shipToCity": shipto.get("city"),
+        "shipToState": shipto.get("state"),
         "shipToCountry": shipto.get("country"),
 
-        # Package
         "noOfBoxes": noOfBoxes,
         "weight": weight,
         "length": length,
@@ -257,7 +260,7 @@ def create_shipment(state):
     return response.json()
 
 
-# tracking details
+#Tracking API
 def get_tracking(tracking_number):
 
     url = f"{BASE_URL}/api/Shipping/GetTracking"
