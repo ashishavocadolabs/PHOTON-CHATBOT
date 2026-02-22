@@ -334,7 +334,9 @@ function renderBotResponse(data) {
     botDiv.innerText = data.response || "Something went wrong.";
     messagesDiv.appendChild(botDiv);
 
-    speakText(data.response);
+    if(listening){
+        speakText(data.response);
+    }
 
     if (data.options && data.options.length > 0) {
         data.options.forEach(option => {

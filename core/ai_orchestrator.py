@@ -52,6 +52,7 @@ conversation_state = {
     "available_shipto": [],
     "shipto": None,
     "shipto_selection_mode": False,
+    "language": "english",
 }
 
 
@@ -210,6 +211,16 @@ def handle_chat(user_message):
         extract_quote_fields(user_message)
         user_name = get_logged_user_name()
 
+        # ================= LANGUAGE SWITCH =================
+
+        if "speak in hindi" in user_message.lower():
+            conversation_state["language"] = "hindi"
+            return {"response": "Theek hai Main Hindi mein jawab dunga. Aap kya puchna chahte hain?"}
+
+        if "speak in english" in user_message.lower():
+            conversation_state["language"] = "english"
+            return {"response": "Sure. I will continue in English."}
+
         # 🔥 Smart Greeting Control
         if user_message.lower().startswith(("hi", "hello", "hey")):
             reset_state()
@@ -350,12 +361,6 @@ def handle_chat(user_message):
                 "options": options
             }
         
-        # Force language switch commands
-        if "speak in english" in user_message.lower():
-            return {"response": "Sure. I will respond in English. How can I assist you?"}
-
-        if "speak in hindi" in user_message.lower():
-            return {"response": "Theek hai. Main Hindi mein (Roman script) jawab dunga. Aap kya puchna chahte hain?"}
 
         # AI RESPONSE GENERATION WITH TOOL CALLS
 
@@ -365,17 +370,6 @@ You are Photon AI Assistant developed by AvocadoLabs Pvt Ltd.
 The logged-in user's name is: {user_name if user_name else "User"}.
 When greeting, use the user's name naturally.
 
-========================
-LANGUAGE RULE (STRICT)
-========================
-
-- You must ALWAYS respond in English.
-- Never respond in Hindi.
-- Never use Hindi script.
-- Even if user types in Hindi, reply only in English.
-- Do not translate to Hindi.
-- Do not use Roman Hindi.
-- English only.
 
 ========================
 CORE IDENTITY
