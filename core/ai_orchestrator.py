@@ -244,7 +244,27 @@ def handle_chat(user_message):
             return {
                 "response": f"Namaste {name_part}!\nMain shipping quotes aur shipment tracking mein kya madad kar sakta hoon."
             }
+        # ================= INTENT DETECTION =================
 
+        intent_msg = user_message.lower().strip()
+
+        if "shipping quote" in intent_msg or "shipping quotes" in intent_msg or intent_msg == "quote":
+            reset_state()
+            return {
+                "response":
+                "Sure 👍 I can help you with shipping quote.\n\n"
+                "Please provide:\n"
+                "1️⃣ From Pincode (6 digits)\n"
+                "2️⃣ To Pincode (6 digits)\n"
+                "3️⃣ Weight (in KG)\n"
+                "4️⃣ Dimensions (Length x Width x Height in CM)"
+            }
+
+        if "track" in intent_msg or "tracking" in intent_msg:
+            reset_state()
+            return {
+                "response": "Please provide tracking number."
+            }
         # ================= WAREHOUSE SELECTION FLOW =================
         if conversation_state["warehouse_selection_mode"] and user_message.isdigit():
 
