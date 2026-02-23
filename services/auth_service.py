@@ -50,7 +50,7 @@ def login():
 
     token_cache["token"] = token
 
-    # 🔥 Decode token to extract userId
+    #  Decode token to extract userId
     decoded = decode_jwt(token)
 
     token_cache["name"] = (

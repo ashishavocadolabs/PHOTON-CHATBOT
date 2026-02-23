@@ -24,65 +24,87 @@ def home():
 body {
     margin:0;
     font-family: 'Segoe UI', sans-serif;
-    background: radial-gradient(circle at top, #0f2027, #203a43, #2c5364);
 }
 
 /* Floating Button */
 .chat-button {
     position: fixed;
-    bottom: 25px;
-    right: 25px;
-    background: linear-gradient(135deg,#00f2fe,#4facfe);
+    bottom: 20px;
+    right: 20px;
+    background: #2f6f6f;
     color: white;
     border-radius: 50%;
-    width: 70px;
-    height: 70px;
+    width: 55px;
+    height: 55px;
     display: flex;
     align-items: center;
     justify-content: center;
     cursor: pointer;
-    font-size: 28px;
-    box-shadow: 0 0 20px #00f2fe;
-    transition:0.3s;
+    font-size: 22px;
+    box-shadow: 0 6px 20px rgba(0,0,0,0.2);
+    transition: 0.3s;
+}
+.chat-button:hover {
+    transform: scale(1.05);
 }
 .chat-button.listening {
-    box-shadow:0 0 30px red;
+    background:#c0392b;
 }
 
 /* Chat Box */
 .chat-box {
     position: fixed;
-    bottom: 110px;
-    right: 25px;
-    width: 400px;
-    height: 600px;
-    background: rgba(10,20,30,0.95);
-    border-radius: 20px;
-    box-shadow: 0 0 30px #00f2fe;
+    bottom: 90px;
+    right: 20px;
+    width: 360px;
+    height: 520px;
+    background: #ffffff;
+    border-radius: 16px;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.2);
     display: none;
     flex-direction: column;
     overflow: hidden;
+    border: 1px solid #e0e0e0;
+    opacity:0;
+    transform:translateY(20px);
+    transition: all 0.3s ease;
+}
+.chat-box.active {
+    opacity:1;
+    transform:translateY(0);
 }
 
-/* HEADER */
 .chat-header {
-    height: 60px;
-    background: linear-gradient(90deg,#00f2fe,#4facfe);
+    overflow: visible;
+    position: relative;
+}
+/* Header */
+.chat-header {
+    height: 50px;
+    background: #2f6f6f;
+    color: white;
     display:flex;
     align-items:center;
-    justify-content:center;
-    font-size:16px;
-    font-weight:600;
-    padding:0 10px;
+    justify-content: space-between;
+    padding: 0 15px;
+    font-weight: 600;
+}
+
+/* Messages Area */
+.chat-messages {
+    flex:1;
+    padding:15px;
+    overflow-y:auto;
+    background:#f4f6f8;
 }
 
 /* ===== LOGO ANIMATION AREA ===== */
 .logo-area {
     display:flex;
     align-items:center;
-    justify-content:space-between;
-    width:100%;
-    padding:0 15px;
+    justify-content:center;
+    gap:8px;
+    flex:1;
 }
 
 .box-icon, .truck-icon {
@@ -100,7 +122,29 @@ body {
     font-weight:600;
     opacity:1;
 }
+.header-icon {
+    width:32px;
+    height:32px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    cursor:pointer;
+    border-radius:8px;
+    transition:0.3s;
+}
 
+.header-icon svg {
+    width:18px;
+    height:18px;
+    fill:white;
+    stroke:white;
+    stroke-width:2;
+}
+
+.header-icon:hover {
+    background:rgba(255,255,255,0.15);
+    transform:scale(1.1);
+}
 /* Animations */
 @keyframes jumpBox {
     0% { transform: translateY(20px); opacity:0; }
@@ -127,13 +171,29 @@ body {
     color:white;
 }
 
-.bot, .user {
-    padding:12px;
-    border-radius:15px;
+/* Bot Message */
+.bot {
+    background:#ffffff;
+    padding:10px 14px;
+    border-radius:12px;
     margin-bottom:10px;
-    white-space: pre-line;
-    animation:fadeIn 0.3s ease-in;
+    font-size:14px;
+    box-shadow:0 2px 6px rgba(0,0,0,0.05);
+    border-left:4px solid #2f6f6f;
 }
+
+/* User Message */
+.user {
+    background:#2f6f6f;
+    color:white;
+    padding:10px 14px;
+    border-radius:12px;
+    margin-bottom:10px;
+    margin-left:auto;
+    font-size:14px;
+    max-width:80%;
+}
+
 
 @keyframes fadeIn {
     from{opacity:0; transform:translateY(10px);}
@@ -169,51 +229,125 @@ body {
     40% { transform:scale(1);}
 }
 
-/* Input */
+/* Input Area */
 .chat-input {
     display:flex;
-    align-items:center;
     padding:10px;
-    background:#16222a;
-    gap:8px;
+    background:#ffffff;
+    border-top:1px solid #e0e0e0;
+    gap:10px;
 }
 
 .chat-input input {
     flex:1;
-    padding:12px;
-    border-radius:25px;
-    border:none;
+    padding:10px 12px;
+    border-radius:20px;
+    border:1px solid #ccc;
     outline:none;
     font-size:14px;
 }
 
 .chat-input button {
-    width:45px;
-    height:45px;
+    margin-left:8px;
+    width:40px;
+    height:40px;
     border-radius:50%;
     border:none;
-    background:#00f2fe;
+    background:#2f6f6f;
+    color:white;
     cursor:pointer;
-    font-size:16px;
-    display:flex;
-    align-items:center;
-    justify-content:center;
+    font-size:14px;
 }
 
 /* Options */
 .option-btn {
-    margin:6px 0;
-    padding:10px;
-    border-radius:10px;
-    border:none;
-    background:#1e2a38;
-    color:white;
-    border:1px solid #00f2fe;
+    display:block;
+    width:100%;
+    text-align:left;
+    margin-top:6px;
+    padding:8px 10px;
+    border-radius:8px;
+    border:1px solid #dcdcdc;
+    background:#ffffff;
     cursor:pointer;
+    font-size:13px;
 }
 .option-btn:hover {
-    background:#00f2fe;
-    color:black;
+    background:#f0f7f7;
+}
+
+/* Typing Animation */
+.typing span {
+    height:6px;
+    width:6px;
+    background:#2f6f6f;
+    border-radius:50%;
+    display:inline-block;
+    margin:0 2px;
+    animation:bounce 1.4s infinite;
+}
+.typing span:nth-child(2){animation-delay:0.2s;}
+.typing span:nth-child(3){animation-delay:0.4s;}
+
+.chat-header {
+    height: 50px;
+    background: linear-gradient(135deg, #1f4e4e, #2f6f6f);
+    box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+    color: white;
+    display:flex;
+    align-items:center;
+    justify-content: space-between;
+    padding: 0 10px;
+    font-weight: 600;
+}
+
+.header-icon svg {
+    transition: transform 0.3s ease;
+}
+
+/* Tooltip Wrapper */
+.tooltip {
+    position: relative;
+}
+
+/* Tooltip Text */
+.tooltip-text {
+    position: absolute;
+    bottom: 130%;
+    left: 50%;
+    transform: translateX(-50%) translateY(5px);
+    background: #1f4e4e;
+    color: #fff;
+    padding: 5px 8px;
+    font-size: 11px;
+    border-radius: 6px;
+    white-space: nowrap;
+    opacity: 0;
+    pointer-events: none;
+    transition: all 0.2s ease;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+}
+
+/* Tooltip Arrow */
+.tooltip-text::after {
+    content: "";
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    border-width: 5px;
+    border-style: solid;
+    border-color: #1f4e4e transparent transparent transparent;
+}
+
+/* Show Tooltip */
+.tooltip:hover .tooltip-text {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+}
+@keyframes bounce {
+    0%,80%,100% { transform:scale(0);}
+    40% { transform:scale(1);}
 }
 </style>
 </head>
@@ -225,34 +359,67 @@ body {
 <div class="chat-box" id="chatBox">
 
     <div class="chat-header">
+
+        <!-- LEFT RESET ICON -->
+        <div class="header-icon tooltip" onclick="resetChat()">
+            <svg viewBox="0 0 24 24">
+                <path d="M12 6V3L8 7l4 4V8c2.76 0 5 2.24 5 5a5 5 0 11-5-5z"/>
+            </svg>
+            <span class="tooltip-text">Reset Chat</span>
+        </div>
+
+        <!-- EXISTING CONTENT (UNCHANGED) -->
         <div class="logo-area">
             <div class="box-icon" id="boxIcon">📦</div>
             <div class="hi-text" id="hiText">Hi 👋 Welcome to Photon AI</div>
             <div class="truck-icon" id="truckIcon">🚚</div>
         </div>
+
+        <!-- RIGHT CLOSE ICON -->
+        <div class="header-icon tooltip" onclick="closeChat()">
+            <svg viewBox="0 0 24 24">
+                <path d="M18 6L6 18M6 6l12 12"/>
+            </svg>
+            <span class="tooltip-text">Close Chat</span>
+        </div>
+
     </div>
 
     <div class="chat-messages" id="messages">
-        <div class="bot">Hello 👋 I am your AI Logistics Assistant. Speak Hindi or English. Say "Hey Photon" to activate voice.</div>
+        <div class="bot">Hello 👋 {name}! I am your AI Logistics Assistant. Speak Hindi or English. Say "Hey Photon" to activate voice.</div>
     </div>
 
     <div class="chat-input">
-        <button onclick="toggleVoice()">🎙</button>
+    <button class="tooltip" onclick="toggleVoice()">
+        🎙
+        <span class="tooltip-text">Mic</span>
+    </button>
         <input type="text" id="messageInput"
-        placeholder="Ask about quote or tracking..."
+        placeholder="Ask about quote or shipment..."
         onkeydown="if(event.key==='Enter'){sendMessage();}">
-        <button onclick="sendMessage()">➤</button>
+        <button class="tooltip" onclick="sendMessage()">
+            ➤
+            <span class="tooltip-text">Send</span>
+        </button>
     </div>
 
 </div>
 
 <script>
 
+const USER_NAME = "{name}";
+
 /* Toggle Chat */
 function toggleChat() {
     let box = document.getElementById("chatBox");
-    box.style.display = box.style.display === "flex" ? "none" : "flex";
-    box.style.flexDirection = "column";
+
+    if(box.classList.contains("active")){
+        box.classList.remove("active");
+        setTimeout(()=>{ box.style.display="none"; },300);
+    } else {
+        box.style.display="flex";
+        setTimeout(()=>{ box.classList.add("active"); },10);
+    }
 }
 
 /* HEADER LOOP ANIMATION (unchanged) */
@@ -400,15 +567,20 @@ function startVoice(){
     listening=true;
     document.getElementById("chatBtn").classList.add("listening");
 
-    recognition.onresult=function(event){
-        let transcript=event.results[event.results.length-1][0].transcript.toLowerCase();
+    recognition.onresult = function(event){
+        let transcript = event.results[event.results.length-1][0].transcript.toLowerCase().trim();
 
-        if(transcript.includes(wakeWord)){
-            speakText("Yes {name}, I am listening.");
+        // Ignore very short words to prevent loop
+        if(transcript.length < 3){
             return;
         }
 
-        document.getElementById("messageInput").value=transcript;
+        if(transcript.includes(wakeWord)){
+            speakText("Yes " + USER_NAME + ", I am listening.");
+            return;
+        }
+
+        document.getElementById("messageInput").value = transcript;
         sendMessage();
     };
 }
@@ -417,14 +589,58 @@ function startVoice(){
 function speakText(text){
     if(!text) return;
 
+    // Stop mic before speaking
+    if(recognition && listening){
+        recognition.stop();
+    }
+
     window.speechSynthesis.cancel();
 
-    let speech=new SpeechSynthesisUtterance(text);
-    speech.lang="en-US";
-    speech.rate=1;
+    let speech = new SpeechSynthesisUtterance(text);
+    speech.lang = "en-US";
+    speech.rate = 1;
+
+    speech.onend = function(){
+        // Restart mic only if voice mode enabled
+        if(listening){
+            recognition.start();
+        }
+    };
+
     window.speechSynthesis.speak(speech);
 }
 
+function closeChat(){
+    let box = document.getElementById("chatBox");
+    box.classList.remove("active");
+    setTimeout(()=>{ box.style.display="none"; },300);
+}
+
+async function resetChat(){
+
+    // stop voice if active
+    if(recognition && listening){
+        recognition.stop();
+        listening = false;
+        document.getElementById("chatBtn").classList.remove("listening");
+    }
+
+    // clear UI
+    let messagesDiv = document.getElementById("messages");
+    messagesDiv.innerHTML = `
+        <div class="bot">
+            Hello 👋 ${USER_NAME} I am your AI Logistics Assistant.
+        </div>
+    `;
+
+    // optional backend reset
+    await fetch("/reset", { method: "POST" });
+
+    document.querySelector(".header-icon svg").style.transform = "rotate(360deg)";
+    setTimeout(()=>{
+        document.querySelector(".header-icon svg").style.transform = "rotate(0deg)";
+    },300);
+}
 </script>
 
 </body>

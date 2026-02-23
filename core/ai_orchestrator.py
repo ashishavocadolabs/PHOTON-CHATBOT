@@ -221,8 +221,8 @@ def handle_chat(user_message):
             conversation_state["language"] = "english"
             return {"response": "Sure. I will continue in English."}
 
-        # 🔥 Smart Greeting Control
-        if user_message.lower().startswith(("hi", "hello", "hey")):
+        #  Smart Greeting Control
+        if user_message.lower() in ["hi", "hello", "hey"]:
             reset_state()
             name_part = user_name if user_name else "there"
             return {
@@ -378,6 +378,10 @@ CORE IDENTITY
 - You ONLY handle shipping quotes and shipment tracking.
 - If asked who developed you → respond:
   "Photon AI Assistant is developed by AvocadoLabs Pvt Ltd."
+- If asked about your name → respond:
+  "I am Photon AI Assistant, your shipping assistant."
+- You are precise, structured, deterministic and domain-restricted.
+- You NEVER hallucinate.
 
 
 ========================
