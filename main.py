@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
-from core.ai_orchestrator import handle_chat
+from core.ai_orchestrator import handle_chat, reset_state
 from services.auth_service import get_logged_user_name
 
 app = FastAPI()
@@ -394,10 +394,82 @@ body {
     0%,80%,100% { transform:scale(0);}
     40% { transform:scale(1);}
 }
+/* Floating Animation Container */
+.floating-hi {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    width: 55px;
+    height: 120px;
+    pointer-events: none;
+}
+
+/* Hi bubble INSIDE box */
+.hi-popup {
+    position: absolute;
+    bottom: 8px;
+    left: -20px;
+    background: #2f6f6f;
+    color: white;
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 12px;
+    opacity: 0;
+    transform: translateY(15px);
+    transition: all 0.4s ease;
+    z-index: 1;
+    white-space: nowrap;
+}
+
+/* Hi bubble from chat button */
+.chat-hi-bubble {
+    position: fixed;
+    bottom: 85px;
+    right: 20px;
+    background: #2f6f6f;
+    color: white;
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-size: 13px;
+    opacity: 0;
+    transform: translateY(10px) scale(0.9);
+    transition: all 0.4s ease;
+    box-shadow: 0 8px 20px rgba(0,0,0,0.2);
+}
+
+/* small tail */
+.chat-hi-bubble::after {
+    content: "";
+    position: absolute;
+    bottom: -6px;
+    right: 20px;
+    border-width: 6px;
+    border-style: solid;
+    border-color: #2f6f6f transparent transparent transparent;
+}
+
+/* Animations */
+@keyframes boxRise {
+    0% { opacity:0; transform: translateY(20px); }
+    100% { opacity:1; transform: translateY(0); }
+}
+
+@keyframes boxOpen {
+    0% { transform: rotateX(0deg); }
+    100% { transform: rotateX(20deg); }
+}
+
+@keyframes hiFade {
+    0% { opacity:0; transform: translateY(10px); }
+    100% { opacity:1; transform: translateY(0); }
+}
 </style>
 </head>
 
 <body>
+<div class="chat-hi-bubble" id="chatHi">
+    Hi 👋
+</div>
 
 <div class="chat-button" id="chatBtn" onclick="toggleChat()">💬</div>
 
@@ -708,6 +780,28 @@ async function resetChat(){
         document.querySelector(".header-icon svg").style.transform = "rotate(0deg)";
     },300);
 }
+
+function startHiBubble() {
+    const bubble = document.getElementById("chatHi");
+
+    function animate() {
+
+        // Show
+        bubble.style.opacity = 1;
+        bubble.style.transform = "translateY(0) scale(1)";
+
+        // Hide after 5 sec
+        setTimeout(() => {
+            bubble.style.opacity = 0;
+            bubble.style.transform = "translateY(10px) scale(0.9)";
+        }, 5000);
+    }
+
+    animate();
+    setInterval(animate, 8000);
+}
+
+startHiBubble();
 </script>
 
 </body>
@@ -718,3 +812,8 @@ async function resetChat(){
 @app.post("/chat")
 async def chat(request: ChatRequest):
     return handle_chat(request.message)
+
+@app.post("/reset")
+async def reset_chat():
+    reset_state()
+    return {"status": "reset done"}

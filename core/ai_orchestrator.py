@@ -208,7 +208,6 @@ def extract_quote_fields(message):
 def handle_chat(user_message):
     try:
         user_message = user_message.strip()
-        extract_quote_fields(user_message)
         user_name = get_logged_user_name()
 
         # ================= LANGUAGE SWITCH =================
@@ -244,12 +243,51 @@ def handle_chat(user_message):
             return {
                 "response": f"Namaste {name_part}!\nMain shipping quotes aur shipment tracking mein kya madad kar sakta hoon."
             }
+        
+        # ================= IDENTITY QUESTIONS =================
+
+
+        identity_msg = user_message.lower().strip()
+
+        developer_keywords = [
+            "who develop",
+            "who developed",
+            "who created",
+            "who made",
+            "who built",
+            "developer",
+            "creator",
+            "developed by",
+            "develop"
+        ]
+
+        if any(k in identity_msg for k in developer_keywords):
+            return {
+                "response": "Photon AI Assistant is developed by AvocadoLabs Pvt Ltd."
+            }
+
+        name_keywords = [
+            "your name",
+            "what is your name",
+            "who are you"
+        ]
+
+        if any(k in identity_msg for k in name_keywords):
+            return {
+                "response": "I am Photon AI Assistant, your shipping assistant."
+            }
         # ================= INTENT DETECTION =================
 
         intent_msg = user_message.lower().strip()
 
-        if "shipping quote" in intent_msg or "shipping quotes" in intent_msg or intent_msg == "quote":
+        if (
+        "shipping quote" in intent_msg
+            or "shipping quotes" in intent_msg
+            or intent_msg == "quote"
+            or intent_msg == "shipping"
+        ):
             reset_state()
+            extract_quote_fields(user_message)
             return {
                 "response":
                 "Sure 👍 I can help you with shipping quote.\n\n"
@@ -557,7 +595,7 @@ Never hallucinate.
 
         required_fields = ["from_pincode", "to_pincode", "weight", "length", "width", "height"]
 
-        if any(conversation_state.get(f) for f in required_fields):
+        if all(conversation_state.get(f) for f in required_fields):
 
             missing = [f for f in required_fields if not conversation_state.get(f)]
 
