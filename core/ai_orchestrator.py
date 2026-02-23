@@ -222,11 +222,27 @@ def handle_chat(user_message):
             return {"response": "Sure. I will continue in English."}
 
         #  Smart Greeting Control
-        if user_message.lower() in ["hi", "hello", "hey"]:
+        msg = user_message.lower().strip()
+
+        greetings = ["hi", "hello", "hey", "hy", "hii", "heyy"]
+
+        if any(msg.startswith(g) for g in greetings):
+            reset_state()
+            name_part = user_name if user_name else "there"
+
+            return {
+                "response": f"Hi {name_part} 👋\nI can help you with shipping quotes and shipment tracking."
+            }
+        
+        hindi_greetings = ["namaste", "namaskar"]
+
+        if any(msg.startswith(g) for g in greetings):
+            ...
+        elif any(msg.startswith(g) for g in hindi_greetings):
             reset_state()
             name_part = user_name if user_name else "there"
             return {
-                "response": f"Hi {name_part} 👋\nI can help you with shipping quotes and shipment tracking."
+                "response": f"Namaste {name_part}!\nMain shipping quotes aur shipment tracking mein kya madad kar sakta hoon."
             }
 
         # ================= WAREHOUSE SELECTION FLOW =================

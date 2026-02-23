@@ -229,6 +229,39 @@ body {
     40% { transform:scale(1);}
 }
 
+/* Sending Bubble */
+.sending {
+    background:#00f2fe;
+    color:black;
+    padding:10px 14px;
+    border-radius:12px;
+    margin-bottom:10px;
+    margin-left:auto;
+    font-size:14px;
+    max-width:80%;
+    display:flex;
+    align-items:center;
+    gap:6px;
+    opacity:0.8;
+}
+
+/* Animated dots */
+.sending span {
+    width:6px;
+    height:6px;
+    background:black;
+    border-radius:50%;
+    display:inline-block;
+    animation: sendBounce 1.2s infinite;
+}
+
+.sending span:nth-child(2){animation-delay:0.2s;}
+.sending span:nth-child(3){animation-delay:0.4s;}
+
+@keyframes sendBounce {
+    0%,80%,100% { transform:scale(0); }
+    40% { transform:scale(1); }
+}
 /* Input Area */
 .chat-input {
     display:flex;
@@ -377,7 +410,7 @@ body {
             <svg viewBox="0 0 24 24">
                 <path d="M12 6V3L8 7l4 4V8c2.76 0 5 2.24 5 5a5 5 0 11-5-5z"/>
             </svg>
-            <span class="tooltip-text">Reset</span>
+            <span class="tooltip-text">Restart</span>
         </div>
 
         <!-- EXISTING CONTENT (UNCHANGED) -->
@@ -489,9 +522,22 @@ async function sendMessage() {
     if (!message) return;
 
     let messagesDiv = document.getElementById("messages");
+
+    // Show user message
     messagesDiv.innerHTML += `<div class="user">${message}</div>`;
     input.value = "";
-    showTyping();
+
+    // Show sending bubble
+    let sendingDiv = document.createElement("div");
+    sendingDiv.className = "sending";
+    sendingDiv.id = "sendingBubble";
+    sendingDiv.innerHTML = `
+        Sending
+        <span></span><span></span><span></span>
+    `;
+    messagesDiv.appendChild(sendingDiv);
+
+    messagesDiv.scrollTop = messagesDiv.scrollHeight;
 
     let response = await fetch("/chat", {
         method: "POST",
@@ -500,8 +546,17 @@ async function sendMessage() {
     });
 
     let data = await response.json();
-    removeTyping();
-    renderBotResponse(data);
+
+    // Remove sending bubble
+    let bubble = document.getElementById("sendingBubble");
+    if (bubble) bubble.remove();
+
+    // Now show bot typing
+    showTyping();
+    setTimeout(() => {
+        removeTyping();
+        renderBotResponse(data);
+    }, 500);
 }
 
 /* Render Bot */
