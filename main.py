@@ -525,17 +525,38 @@ body {
 <script>
 
 const USER_NAME = "{name}";
+let hiInterval = null;
 
 /* Toggle Chat */
 function toggleChat() {
-    let box = document.getElementById("chatBox");
 
-    if(box.classList.contains("active")){
+    let box = document.getElementById("chatBox");
+    let bubble = document.getElementById("chatHi");
+
+    if (box.classList.contains("active")) {
+
+        // CLOSE CHAT
         box.classList.remove("active");
         setTimeout(()=>{ box.style.display="none"; },300);
+
+        // Show Hi bubble again
+        startHiBubble();
+
     } else {
+
+        // OPEN CHAT
         box.style.display="flex";
         setTimeout(()=>{ box.classList.add("active"); },10);
+
+        // Hide Hi bubble
+        if (bubble) {
+            bubble.style.display = "none";
+        }
+
+        // Stop animation while open
+        if (hiInterval) {
+            clearInterval(hiInterval);
+        }
     }
 }
 
@@ -782,15 +803,16 @@ async function resetChat(){
 }
 
 function startHiBubble() {
+
     const bubble = document.getElementById("chatHi");
 
     function animate() {
 
-        // Show
+        bubble.style.display = "block";
+
         bubble.style.opacity = 1;
         bubble.style.transform = "translateY(0) scale(1)";
 
-        // Hide after 5 sec
         setTimeout(() => {
             bubble.style.opacity = 0;
             bubble.style.transform = "translateY(10px) scale(0.9)";
@@ -798,7 +820,7 @@ function startHiBubble() {
     }
 
     animate();
-    setInterval(animate, 8000);
+    hiInterval = setInterval(animate, 8000);
 }
 
 startHiBubble();
