@@ -269,6 +269,45 @@ body {
     background:#ffffff;
     border-top:1px solid #e0e0e0;
     gap:10px;
+    position: relative;
+    border-radius: 0 0 16px 16px;
+}
+
+/*  Premium Glow Effect */
+.chat-input::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: 0 0 16px 16px;
+    pointer-events: none;
+    box-shadow: 
+        0 0 10px #00f2fe,
+        0 0 20px #00c6ff,
+        0 0 35px #00eaff;
+    opacity: 0.7;
+    animation: glowPulse 2s infinite ease-in-out;
+}
+
+/* Glow Animation */
+@keyframes glowPulse {
+    0% {
+        box-shadow: 
+            0 0 5px #00f2fe,
+            0 0 10px #00f2fe,
+            0 0 15px #00f2fe;
+    }
+    50% {
+        box-shadow: 
+            0 0 15px #00f2fe,
+            0 0 25px #00f2fe,
+            0 0 40px #00f2fe;
+    }
+    100% {
+        box-shadow: 
+            0 0 5px #00f2fe,
+            0 0 10px #00f2fe,
+            0 0 15px #00f2fe;
+    }
 }
 
 .chat-input input {
@@ -462,6 +501,31 @@ body {
 @keyframes hiFade {
     0% { opacity:0; transform: translateY(10px); }
     100% { opacity:1; transform: translateY(0); }
+}
+
+/* 🔥 Glow when Mic is Active */
+.chat-box.listening-glow {
+    box-shadow:
+        0 0 15px #00f2fe,
+        0 0 30px #00f2fe,
+        0 0 50px #00f2fe;
+    transition: box-shadow 0.3s ease;
+    animation: micGlow 1.5s infinite alternate;
+}
+
+@keyframes micGlow {
+    from {
+        box-shadow:
+            0 0 10px #00f2fe,
+            0 0 20px #00f2fe,
+            0 0 30px #00f2fe;
+    }
+    to {
+        box-shadow:
+            0 0 25px #00f2fe,
+            0 0 45px #00f2fe,
+            0 0 70px #00f2fe;
+    }
 }
 </style>
 </head>
@@ -703,12 +767,24 @@ let listening=false;
 let wakeWord="hey photon";
 
 function toggleVoice(){
+
+    let chatBox = document.getElementById("chatBox");
+
     if(listening){
+
         recognition.stop();
         listening=false;
         document.getElementById("chatBtn").classList.remove("listening");
+
+        //  Remove glow
+        chatBox.classList.remove("listening-glow");
+
     }else{
+
         startVoice();
+
+        //  Add glow
+        chatBox.classList.add("listening-glow");
     }
 }
 
