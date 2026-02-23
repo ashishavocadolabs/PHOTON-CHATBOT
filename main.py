@@ -345,6 +345,18 @@ body {
     opacity: 1;
     transform: translateX(-50%) translateY(0);
 }
+/* Bottom Tooltip (for header icons only) */
+.tooltip-bottom .tooltip-text {
+    top: 120%;
+    bottom: auto;
+    transform: translateX(-50%) translateY(-5px);
+}
+
+.tooltip-bottom .tooltip-text::after {
+    top: auto;
+    bottom: 100%;
+    border-color: transparent transparent #1f4e4e transparent;
+}
 @keyframes bounce {
     0%,80%,100% { transform:scale(0);}
     40% { transform:scale(1);}
@@ -361,11 +373,11 @@ body {
     <div class="chat-header">
 
         <!-- LEFT RESET ICON -->
-        <div class="header-icon tooltip" onclick="resetChat()">
+        <div class="header-icon tooltip tooltip-bottom" onclick="resetChat()">
             <svg viewBox="0 0 24 24">
                 <path d="M12 6V3L8 7l4 4V8c2.76 0 5 2.24 5 5a5 5 0 11-5-5z"/>
             </svg>
-            <span class="tooltip-text">Reset Chat</span>
+            <span class="tooltip-text">Reset</span>
         </div>
 
         <!-- EXISTING CONTENT (UNCHANGED) -->
@@ -376,11 +388,11 @@ body {
         </div>
 
         <!-- RIGHT CLOSE ICON -->
-        <div class="header-icon tooltip" onclick="closeChat()">
+        <div class="header-icon tooltip tooltip-bottom" onclick="closeChat()">
             <svg viewBox="0 0 24 24">
                 <path d="M18 6L6 18M6 6l12 12"/>
             </svg>
-            <span class="tooltip-text">Close Chat</span>
+            <span class="tooltip-text">Close</span>
         </div>
 
     </div>
