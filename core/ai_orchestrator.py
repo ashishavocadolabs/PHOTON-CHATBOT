@@ -12,66 +12,25 @@ from services.shipping_service import (
     get_all_shipto_addresses,
     get_default_warehouse,
     save_new_shipto_address,
-    get_pincode_details
+    get_pincode_details,
+    get_all_warehouses
 )
 
 load_dotenv()
-
 client = Groq(api_key=os.getenv("GROQ_API_KEY"))
 
-#global conversation state
-conversation_state = {
-    # Quote
-    "from_pincode": None,
-    "to_pincode": None,
-    "weight": None,
-    "length": None,
-    "width": None,
-    "height": None,
+# =====================================================
+# GLOBAL CONVERSATION STATE
+# =====================================================
 
-    # Courier selection
-    "available_services": [],
-    "carrierId": None,
-    "serviceId": None,
-
-    # Warehouse
-    "available_warehouses": [],
-    "warehouse": None,
-    "warehouse_selection_mode": False,
-
-    # Customer Details
-    "customer_name": None,
-    "customer_phone": None,
-    "customer_email": None,
-    "address_line1": None,
-
-    # Product Details
-    "product": None,
-    "invoice_amount": None,
-    "quantity": None,
-    "noOfBoxes": None,
-
-    # ship
-    "available_shipto": [],
-    "shipto": None,
-    "shipto_selection_mode": False,
-    "language": "english",
-
-    # New Address Creation
-    "new_name": None,
-    "new_phone": None,
-    "new_email": None,
-    "new_address1": None,
-    "new_address2": None,
-    "new_postalCode": None,
-    "new_address_mode": False,
-}
-
-
-#reset conversation state except quote details
+conversation_state = {}
 
 def reset_state():
-    conversation_state.update({
+    global conversation_state
+    conversation_state = {
+        "flow_mode": None,  # quote / shipping / tracking
+
+        # Quote fields
         "from_pincode": None,
         "to_pincode": None,
         "weight": None,
@@ -79,29 +38,28 @@ def reset_state():
         "width": None,
         "height": None,
 
-        "available_services": [],
-        "carrierId": None,
-        "serviceId": None,
-
+        # Shipping fields
         "available_warehouses": [],
         "warehouse": None,
-        "warehouse_selection_mode": False,
-
-        "customer_name": None,
-        "customer_phone": None,
-        "customer_email": None,
-        "address_line1": None,
-
-        "product": None,
-        "invoice_amount": None,
-        "quantity": None,
-        "noOfBoxes": None,
 
         "available_shipto": [],
         "shipto": None,
-        "shipto_selection_mode": False,
 
-        # New Address Creation
+        "product": None,
+        "quantity": None,
+        "invoice_amount": None,
+        "noOfBoxes": None,
+
+        "available_services": [],
+        "carrierId": None,
+        "serviceId": None,
+        "carrierCode": None,
+        "serviceCode": None,
+
+        "awaiting_confirmation": False,
+
+        # New Address
+        "new_address_mode": False,
         "new_name": None,
         "new_phone": None,
         "new_email": None,
@@ -110,470 +68,343 @@ def reset_state():
         "new_postalCode": None,
         "new_city": None,
         "new_state": None,
-        "new_address_mode": False,
 
-        "flow_mode": None,
-        "awaiting_confirmation": False,
-        })
+        "language": "english"
+    }
 
-    conversation_state["available_services"] = []
-    conversation_state["available_warehouses"] = []
-    conversation_state["warehouse_selection_mode"] = False
+reset_state()
+
+# =====================================================
+# SAFE NUMERIC HELPERS (IMPROVED)
+# =====================================================
+
+def is_valid_pincode(pin):
+    return bool(re.match(r"^\d{6}$", str(pin)))
+
+def safe_float(value):
+    try:
+        return float(str(value).strip())
+    except:
+        return None
+
+
+# =====================================================
+# ADVANCED QUOTE EXTRACTION
+# =====================================================
 
 def extract_quote_fields(message):
-    msg = message.lower()
+    msg = message.lower().strip()
 
-    # ---------- PINCODES (find all 6 digit numbers) ----------
+    # -------- PINCODES --------
     pincodes = re.findall(r"\b\d{6}\b", msg)
+    if len(pincodes) >= 1 and not conversation_state["from_pincode"]:
+        conversation_state["from_pincode"] = pincodes[0]
 
-    # ---------- PINCODES ----------
-    from_match = re.search(r'from\s*(\d{6})', msg)
-    to_match = re.search(r'to\s*(\d{6})', msg)
+    if len(pincodes) >= 2:
+        conversation_state["to_pincode"] = pincodes[1]
 
-    if from_match:
-        conversation_state["from_pincode"] = from_match.group(1)
-
-    if to_match:
-        conversation_state["to_pincode"] = to_match.group(1)
-
-    # If both missing but two pincodes exist
-    if not from_match and not to_match:
-        pincodes = re.findall(r"\b\d{6}\b", msg)
-        if len(pincodes) >= 2:
-            conversation_state["from_pincode"] = pincodes[0]
-            conversation_state["to_pincode"] = pincodes[1]
-
-    # ---------- WEIGHT ----------
-    weight_match = re.search(r'(\d+(\.\d+)?)\s*kg', msg)
-    if weight_match:
-        conversation_state["weight"] = float(weight_match.group(1))
-
-    else:
-        weight_match = re.search(r'weight\s*(\d+(\.\d+)?)', msg)
-        if weight_match:
-            conversation_state["weight"] = float(weight_match.group(1))
-
-    # If single number and weight missing but pincodes already present
-    if (not conversation_state["weight"] 
-        and conversation_state["from_pincode"] 
-        and conversation_state["to_pincode"]):
-        single_number = re.fullmatch(r"\d+(\.\d+)?", msg)
-        if single_number:
-            conversation_state["weight"] = float(msg)
-
-
-    # ---------- DIMENSIONS 2: length 5 width 5 height 5 ----------
-    l = re.search(r'length\s*(\d+)', msg)
-    w = re.search(r'width\s*(\d+)', msg)
-    h = re.search(r'height\s*(\d+)', msg)
-
-    if l:
-        conversation_state["length"] = float(l.group(1))
-    if w:
-        conversation_state["width"] = float(w.group(1))
-    if h:
-        conversation_state["height"] = float(h.group(1))
-
-    # ---------- DIMENSIONS 3: any 3 numbers in sentence ----------
-    dim_match = re.search(r'(\d+)[x×*](\d+)[x×*](\d+)', msg)
-    if dim_match:
-        conversation_state["length"] = float(dim_match.group(1))
-        conversation_state["width"] = float(dim_match.group(2))
-        conversation_state["height"] = float(dim_match.group(3))
-        return
-
-    # ---------- DIMENSIONS 2: explicit words ----------
-    l = re.search(r'length\s*(\d+)', msg)
-    w = re.search(r'width\s*(\d+)', msg)
-    h = re.search(r'height\s*(\d+)', msg)
-
-    if l and w and h:
-        conversation_state["length"] = float(l.group(1))
-        conversation_state["width"] = float(w.group(1))
-        conversation_state["height"] = float(h.group(1))
-        return
-
-    # ---------- DIMENSIONS 3: "dimensions 5 5 5" ----------
-    dim_sentence = re.search(r'dimension[s]?\s*(\d+)\s+(\d+)\s+(\d+)', msg)
-    if dim_sentence:
-        conversation_state["length"] = float(dim_sentence.group(1))
-        conversation_state["width"] = float(dim_sentence.group(2))
-        conversation_state["height"] = float(dim_sentence.group(3))
-        return
-
-    # ---------- DIMENSIONS 4: last 3 numbers fallback ----------
-    numbers = re.findall(r'\b\d+\b', msg)
-
-    if len(numbers) >= 3:
-        # Remove pincodes
-        filtered = [
-            n for n in numbers
-            if n != conversation_state["from_pincode"]
-            and n != conversation_state["to_pincode"]
-        ]
-
-        if len(filtered) >= 3:
-            conversation_state["length"] = float(filtered[-3])
-            conversation_state["width"] = float(filtered[-2])
-            conversation_state["height"] = float(filtered[-1])
-
-    # Remove pincodes and weight from numbers
-    clean_numbers = [
-        n for n in numbers
-        if n != conversation_state["from_pincode"]
-        and n != conversation_state["to_pincode"]
-        and str(n) != str(conversation_state["weight"])
+    # -------- WEIGHT --------
+    weight_patterns = [
+        r'(\d+(\.\d+)?)\s*kg',
+        r'weight\s*(\d+(\.\d+)?)'
     ]
 
-    if len(clean_numbers) >= 3:
-        conversation_state["length"] = float(clean_numbers[0])
-        conversation_state["width"] = float(clean_numbers[1])
-        conversation_state["height"] = float(clean_numbers[2])
-#main handler for chat messages
+    for pattern in weight_patterns:
+        match = re.search(pattern, msg)
+        if match:
+            conversation_state["weight"] = float(match.group(1))
+            break
+
+    # If only number and weight missing
+    if not conversation_state["weight"]:
+        single_num = re.fullmatch(r"\d+(\.\d+)?", msg)
+        if single_num:
+            conversation_state["weight"] = float(single_num.group())
+
+    # -------- DIMENSIONS --------
+    dim_patterns = [
+        r'(\d+)[x×* ](\d+)[x×* ](\d+)',
+        r'dimension[s]?\s*(\d+)\s+(\d+)\s+(\d+)',
+        r'(\d+)\s+(\d+)\s+(\d+)'
+    ]
+
+    for pattern in dim_patterns:
+        match = re.search(pattern, msg)
+        if match:
+            conversation_state["length"] = float(match.group(1))
+            conversation_state["width"] = float(match.group(2))
+            conversation_state["height"] = float(match.group(3))
+            break
+
+# =====================================================
+# MAIN HANDLER
+# =====================================================
 
 def handle_chat(user_message):
     try:
         user_message = user_message.strip()
-        user_name = get_logged_user_name()
+        msg = user_message.lower()
+        user_name = get_logged_user_name() or "there"
 
-        # ================= LANGUAGE SWITCH =================
-
-        if "speak in hindi" in user_message.lower():
-            conversation_state["language"] = "hindi"
-            return {"response": "Theek hai Main Hindi mein jawab dunga. Aap kya puchna chahte hain?"}
-
-        if "speak in english" in user_message.lower():
-            conversation_state["language"] = "english"
-            return {"response": "Sure. I will continue in English."}
-
-        #  Smart Greeting Control
-        msg = user_message.lower().strip()
-
-        greetings = ["hi", "hello", "hey", "hy", "hii", "heyy"]
-        hindi_greetings = ["namaste", "namaskar"]
-
-        if any(msg.startswith(g) for g in greetings):
+        # ================= CANCEL ANYTIME =================
+        if msg in ["cancel", "reset", "start over"]:
             reset_state()
-            name_part = user_name if user_name else "there"
-            return {
-                "response": f"Hi {name_part} 👋\nI can help you with shipping quotes and shipment tracking."
-            }
+            return {"response": "Conversation reset successfully."}
 
-        elif any(msg.startswith(g) for g in hindi_greetings):
+        # ================= GREETING =================
+        if msg in ["hi", "hello", "hey", "hii"]:
             reset_state()
-            name_part = user_name if user_name else "there"
             return {
-                "response": f"Namaste {name_part}!\nMain shipping quotes aur shipment tracking mein kya madad kar sakta hoon."
-            }
-        
-        # ================= IDENTITY QUESTIONS =================
-
-
-        identity_msg = user_message.lower().strip()
-
-        developer_keywords = [
-            "who develop",
-            "who developed",
-            "who created",
-            "who made",
-            "who built",
-            "developer",
-            "creator",
-            "developed by",
-            "develop"
-        ]
-
-        if any(k in identity_msg for k in developer_keywords):
-            return {
-                "response": "Photon AI Assistant is developed by AvocadoLabs Pvt Ltd."
+                "response": f"Hi {user_name} 👋\nI can help you with shipping quotes and shipment tracking."
             }
 
-        name_keywords = [
-            "your name",
-            "what is your name",
-            "who are you"
-        ]
-
-        if any(k in identity_msg for k in name_keywords):
-            return {
-                "response": "I am Photon AI Assistant, your shipping assistant."
-            }
-        # ================= INTENT DETECTION =================
-
-        intent_msg = user_message.lower().strip()
-
-        if (
-        "shipping quote" in intent_msg
-            or "shipping quotes" in intent_msg
-            or intent_msg == "quote"
-            or intent_msg == "shipping"
-        ):
+        # ================= TRACKING FLOW =================
+        if "track" in msg:
             reset_state()
-            extract_quote_fields(user_message)
+            conversation_state["flow_mode"] = "tracking"
+            return {"response": "Please provide tracking number."}
+
+        if conversation_state["flow_mode"] == "tracking":
+            result = get_tracking(user_message)
+            reset_state()
+            return format_tracking(result)
+
+        # ================= QUOTE FLOW =================
+        if "quote" in msg:
+            reset_state()
+            conversation_state["flow_mode"] = "quote"
             return {
                 "response":
-                "Sure 👍 I can help you with shipping quote.\n\n"
-                "Please provide:\n"
-                "1️⃣ From Pincode (6 digits)\n"
-                "2️⃣ To Pincode (6 digits)\n"
-                "3️⃣ Weight (in KG)\n"
-                "4️⃣ Dimensions (Length x Width x Height in CM)"
+                "📦 Please provide:\n"
+                "From Pincode\n"
+                "To Pincode\n"
+                "Weight (kg)\n"
+                "Dimensions (L W H)"
             }
 
-        if "track" in intent_msg or "tracking" in intent_msg:
+        if conversation_state["flow_mode"] == "quote":
+
+            extract_quote_fields(user_message)
+
+            required_fields = ["from_pincode", "to_pincode", "weight", "length", "width", "height"]
+
+            missing = [f for f in required_fields if not conversation_state.get(f)]
+            if missing:
+                return {"response": f"Please provide: {', '.join(missing)}"}
+
+            if not is_valid_pincode(conversation_state["from_pincode"]):
+                return {"response": "From pincode must be 6 digits."}
+
+            if not is_valid_pincode(conversation_state["to_pincode"]):
+                return {"response": "To pincode must be 6 digits."}
+
+            result = get_quote(
+                conversation_state["from_pincode"],
+                conversation_state["to_pincode"],
+                conversation_state["weight"],
+                conversation_state["length"],
+                conversation_state["width"],
+                conversation_state["height"]
+            )
+
+            response = format_quote(result)  # FORMAT FIRST
+            reset_state()                    # RESET AFTER
+            return response
+
+        # ================= SHIPPING FLOW =================
+        if "shipping" in msg or "create shipment" in msg:
             reset_state()
-            return {
-                "response": "Please provide tracking number."
-            }
-        # ================= WAREHOUSE SELECTION FLOW =================
-        if conversation_state["warehouse_selection_mode"] and user_message.isdigit():
+            conversation_state["flow_mode"] = "shipping"
 
-            index = int(user_message)
+            warehouses = get_all_warehouses()
+            if not warehouses:
+                return {"response": "No warehouse found."}
+
+            conversation_state["available_warehouses"] = warehouses
+
+            options = [
+                {"label": f"{w.get('addressName')} ({w.get('city')})", "value": str(i+1)}
+                for i, w in enumerate(warehouses)
+            ]
+
+            return {"response": "🏬 Select Warehouse:", "options": options}
+
+        # Warehouse selection
+        if conversation_state["flow_mode"] == "shipping" and not conversation_state["warehouse"] and user_message.isdigit():
+            idx = int(user_message) - 1
             warehouses = conversation_state["available_warehouses"]
 
-            if index < 1 or index > len(warehouses):
+            if idx < 0 or idx >= len(warehouses):
                 return {"response": "Invalid warehouse selection."}
 
-            conversation_state["warehouse"] = warehouses[index - 1]
-            conversation_state["warehouse_selection_mode"] = False
+            conversation_state["warehouse"] = warehouses[idx]
 
-            # AFTER Ship From → Ask Ship To
-            shipto_list = get_all_shipto_addresses()
+            shipto = get_all_shipto_addresses()
+            if not shipto:
+                return {"response": "No ShipTo addresses found."}
 
-            if not shipto_list:
-                return {"response": "No Ship To addresses found."}
+            conversation_state["available_shipto"] = shipto
 
-            conversation_state["available_shipto"] = shipto_list
-            conversation_state["shipto_selection_mode"] = True
+            options = [
+                {"label": f"{s.get('addressName')} ({s.get('postalCode')})", "value": str(i+1)}
+                for i, s in enumerate(shipto)
+            ]
 
-            options = []
+            options.append({"label": "➕ Add New Address", "value": "add_new"})
 
-            for i, s in enumerate(shipto_list, 1):
-                label = (
-                    f"{('ShipTo:' + s.get('addressName', ''))} - "
-                    f"{s.get('city')} ({s.get('state')}, {s.get('postalCode')}), {s.get('country')}\n"
-                    f"{('Address:' + s.get('address1', ''))} {s.get('address2')}\n"
-                    f"Phone: {s.get('phone') if s.get('phone') else ''}\n"
-                    f"Email: {s.get('emailId') if s.get('emailId') else ''}"
-                )
+            return {"response": "🏠 Select ShipTo Address:", "options": options}
 
-                options.append({
-                    "label": label,
-                    "value": str(i)
-                })
-            options.append({
-                "label": "➕ Add New Address",
-                "value": "add_new"
-            })
+        # ShipTo selection
+        if conversation_state["warehouse"] and not conversation_state["shipto"]:
 
-            return {
-                "response": "🏠 Select Ship To Address:",
-                "options": options
-            }
-
-        # ================= SHIP TO SELECTION FLOW =================
-        if conversation_state["shipto_selection_mode"]:
-
-        # ---------- Add New Address ----------
             if user_message == "add_new":
                 conversation_state["new_address_mode"] = True
-                conversation_state["shipto_selection_mode"] = False
-                return {
-                    "response":
-                    "➕ Please enter new Ship To details step-by-step:\n\n"
-                    "1️⃣ Name\n"
-                    "2️⃣ Phone\n"
-                    "3️⃣ Email\n"
-                    "4️⃣ Address Line 1\n"
-                    "5️⃣ Address Line 2\n"
-                    "6️⃣ Postal Code\n"
-                    "7️⃣ City\n"
-                    "8️⃣ State"
-                }
+                return {"response": "Enter Name:"}
 
-            # ---------- Normal Selection ----------
             if user_message.isdigit():
-                index = int(user_message)
-                shipto_list = conversation_state["available_shipto"]
+                idx = int(user_message) - 1
+                shipto = conversation_state["available_shipto"]
 
-                if index < 1 or index > len(shipto_list):
-                    return {"response": "Invalid Ship To selection."}
+                if idx < 0 or idx >= len(shipto):
+                    return {"response": "Invalid ShipTo selection."}
 
-                conversation_state["shipto"] = shipto_list[index - 1]
-                conversation_state["shipto_selection_mode"] = False
+                conversation_state["shipto"] = shipto[idx]
+                return {"response": "Enter Product Name:"}
 
-                # NOW create shipment
-                # DEBUG BEFORE SHIPMENT
-                from services.shipping_service import debug_log
-                debug_log("FINAL SHIPTO USED", conversation_state.get("shipto"))
-
-                # create shipment
-                result = create_shipment(conversation_state)
-                response = format_shipment(result)
-
-                if result.get("statusCode") == 200:
-                    reset_state()
-
-                return response
-            
-        # ================= NEW ADDRESS CREATION FLOW =================
-
-        if conversation_state.get("new_address_mode"):
-
-            msg = user_message.strip()
+        # ================= NEW ADDRESS FLOW =================
+        if conversation_state["new_address_mode"]:
 
             if not conversation_state["new_name"]:
-                conversation_state["new_name"] = msg
+                conversation_state["new_name"] = user_message
                 return {"response": "Enter Phone:"}
 
             if not conversation_state["new_phone"]:
-                phone = re.sub(r"\D", "", msg)
-
+                phone = re.sub(r"\D", "", user_message)
                 if len(phone) != 10:
                     return {"response": "Phone must be 10 digits."}
-
                 conversation_state["new_phone"] = phone
                 return {"response": "Enter Email:"}
 
             if not conversation_state["new_email"]:
-                if not re.match(r"[^@]+@[^@]+\.[^@]+", msg):
-                    return {"response": "Invalid email format."}
-
-                conversation_state["new_email"] = msg
+                conversation_state["new_email"] = user_message
                 return {"response": "Enter Address Line 1:"}
 
             if not conversation_state["new_address1"]:
-                conversation_state["new_address1"] = msg
-                return {"response": "Enter Address Line 2 (or type skip):"}
-
-            if not conversation_state["new_address2"]:
-                if msg.lower() == "skip":
-                    conversation_state["new_address2"] = ""
-                else:
-                    conversation_state["new_address2"] = msg
-
+                conversation_state["new_address1"] = user_message
                 return {"response": "Enter Postal Code:"}
 
             if not conversation_state["new_postalCode"]:
-
-                postal = re.sub(r"\D", "", msg)
-
-                if not re.match(r"^\d{6}$", postal):
+                postal = re.sub(r"\D", "", user_message)
+                if not is_valid_pincode(postal):
                     return {"response": "Postal code must be 6 digits."}
 
                 pin_data = get_pincode_details(postal)
-
                 if not pin_data:
-                    return {"response": "Invalid or unsupported postal code."}
+                    return {"response": "Invalid pincode."}
 
                 conversation_state["new_postalCode"] = postal
                 conversation_state["new_city"] = pin_data["city"]
                 conversation_state["new_state"] = pin_data["state"]
 
-                # ✅ SAVE ADDRESS TO LOGGED-IN ACCOUNT
                 save_result = save_new_shipto_address(conversation_state)
 
                 if save_result.get("statusCode") != 200:
-                    return {"response": "Failed to save address. Please try different data."}
+                    return {"response": "Failed to save address."}
 
-                # fetch updated list
-                updated_shipto = get_all_shipto_addresses()
-
-                if not updated_shipto:
-                    return {"response": "Address saved but unable to fetch ShipTo list."}
-
-                new_address_id = save_result.get("data")
-
-                updated_shipto = get_all_shipto_addresses()
-
-                new_address = next(
-                    (a for a in updated_shipto if str(a.get("addressId")) == str(new_address_id)),
-                    None
-                )
-
-                if not new_address:
-                    return {"response": "Address saved but not retrievable."}
-
-                conversation_state["shipto"] = new_address
                 conversation_state["new_address_mode"] = False
+                conversation_state["shipto"] = get_all_shipto_addresses()[-1]
 
-                # create shipment
-                result = create_shipment(conversation_state)
-                response = format_shipment(result)
+                return {"response": "Address saved. Enter Product Name:"}
 
-                if result.get("statusCode") == 200:
-                    reset_state()
+        # ================= PRODUCT DETAILS =================
+        if conversation_state["shipto"] and not conversation_state["product"]:
+            conversation_state["product"] = user_message
+            return {"response": "Enter Quantity:"}
 
-                return response
+        if conversation_state["product"] and not conversation_state["quantity"]:
 
-        # ================= COURIER SELECTION FLOW =================
-        if (
-            conversation_state["available_services"]
-            and not conversation_state.get("carrierId")
-            and user_message.isdigit()
-        ):
+            qty = re.sub(r"\D", "", user_message)
 
-            index = int(user_message)
+            if not qty:
+                return {"response": "Quantity must be numeric."}
+
+            conversation_state["quantity"] = int(qty)
+            return {"response": "Enter Invoice Amount:"}
+
+        if conversation_state["quantity"] and not conversation_state["invoice_amount"]:
+
+            amount = safe_float(user_message)
+
+            if amount is None:
+                return {"response": "Invoice amount must be numeric."}
+
+            conversation_state["invoice_amount"] = float(amount)
+            return {"response": "Enter Number of Boxes:"}
+
+        if conversation_state["invoice_amount"] and not conversation_state["noOfBoxes"]:
+
+            boxes = re.sub(r"\D", "", user_message)
+
+            if not boxes:
+                return {"response": "Number of boxes must be numeric."}
+
+            conversation_state["noOfBoxes"] = int(boxes)
+            return {"response": "Enter Dimensions (L W H):"}
+
+        if conversation_state["noOfBoxes"] and not conversation_state["length"]:
+            nums = re.findall(r"\d+", user_message)
+            if len(nums) != 3:
+                return {"response": "Enter 3 numbers like: 10 10 10"}
+            conversation_state["length"] = float(nums[0])
+            conversation_state["width"] = float(nums[1])
+            conversation_state["height"] = float(nums[2])
+            return {"response": "Enter Weight (kg):"}
+
+        if conversation_state["length"] and not conversation_state["weight"]:
+            weight = safe_float(user_message)
+            if weight is None:
+                return {"response": "Weight must be numeric."}
+            conversation_state["weight"] = weight
+
+            result = get_quote(
+                conversation_state["warehouse"]["postalCode"],
+                conversation_state["shipto"]["postalCode"],
+                conversation_state["weight"],
+                conversation_state["length"],
+                conversation_state["width"],
+                conversation_state["height"]
+            )
+
+            conversation_state["available_services"] = result.get("data",{}).get("servicesOnDate",[])
+            return format_quote(result)
+
+        # ================= SERVICE SELECTION =================
+        if conversation_state["available_services"] and not conversation_state["carrierId"] and user_message.isdigit():
+
+            idx = int(user_message) - 1
             services = conversation_state["available_services"]
 
-            if index < 1 or index > len(services):
+            if idx < 0 or idx >= len(services):
                 return {"response": "Invalid selection."}
 
-            selected = services[index - 1]
+            selected = services[idx]
             conversation_state["carrierId"] = selected.get("carrierId")
             conversation_state["serviceId"] = selected.get("serviceId")
+            conversation_state["carrierCode"] = selected.get("carrierCode")
+            conversation_state["serviceCode"] = selected.get("serviceCode")
 
-            return {
-                "response":
-                "📦 Please provide shipment details step-by-step:\n\n"
-                "1️⃣ Product Name\n"
-                "2️⃣ Quantity\n"
-                "3️⃣ Invoice Amount\n"
-                "4️⃣ Number of Boxes"
-            }
+            conversation_state["awaiting_confirmation"] = True
+            return {"response": "Confirm shipment? (yes / no)"}
 
-        # shipment details collection flow
-        if conversation_state.get("carrierId") and not conversation_state["warehouse_selection_mode"]:
-
-            extract_shipment_details(user_message)
-
-            missing = get_missing_shipment_fields()
-
-            if missing:
-                return {"response": f"Please provide: {', '.join(missing)}"}
-
-            from services.shipping_service import get_all_warehouses
-
-            warehouse = get_all_warehouses()
-
-            if not warehouse:
-                return {"response": "No warehouse found."}
-
-            conversation_state["available_warehouses"] = (
-                [warehouse] if isinstance(warehouse, dict) else warehouse
-            )
-            conversation_state["warehouse_selection_mode"] = True
-
-            options = []
-
-            for i, w in enumerate(conversation_state["available_warehouses"], 1):
-                label = (
-                    f"Warehouse: {w.get('addressName')} - "
-                    f"{w.get('city')} ({w.get('state')}, {w.get('postalCode')}), {w.get('country')}\n"
-                    f"Address: {w.get('address1')} - {w.get('address2')}\n"
-                    f"Phone: {w.get('phone') if w.get('phone') else ''}\n"
-                    f"Email: {w.get('emailId') if w.get('emailId') else ''}"
-                )
-
-                options.append({
-                    "label": label,
-                    "value": str(i)
-                })
-
-            return {
-                "response": "🏬 Select Ship From Warehouse:",
-                "options": options
-            }
+        # ================= CONFIRMATION =================
+        if conversation_state["awaiting_confirmation"]:
+            if msg == "yes":
+                result = create_shipment(conversation_state)
+                reset_state()
+                return format_shipment(result)
+            else:
+                reset_state()
+                return {"response": "Shipment cancelled."}
         
 
         # AI RESPONSE GENERATION WITH TOOL CALLS
@@ -788,10 +619,9 @@ Stay in logistics domain.
                     conversation_state["height"]
                 )
 
-                # Reset after successful quote
-                if result.get("statusCode") == 200:
-                    return format_quote(result)
-                return format_quote(result)
+                response = format_quote(result)   # format FIRST
+                reset_state()                     # reset AFTER formatting
+                return response
 
         response = client.chat.completions.create(
             model="llama-3.1-8b-instant",

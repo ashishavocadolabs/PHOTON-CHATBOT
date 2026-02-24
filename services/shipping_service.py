@@ -246,7 +246,7 @@ def create_shipment(state):
 
     try:
         quantity = int(state.get("quantity"))
-        invoice_amount = float(state.get("invoice_amount"))
+        invoice_amount = int(state.get("invoice_amount"))
         weight = float(state.get("weight"))
         length = float(state.get("length"))
         width = float(state.get("width"))

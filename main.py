@@ -567,7 +567,7 @@ body {
     </div>
 
     <div class="chat-messages" id="messages">
-        <div class="bot">Hello 👋 {name}! I am your AI Logistics Assistant. Speak Hindi or English. Say "Hey Photon" to activate voice.</div>
+        <div class="bot">Hello 👋 {name}! I am your AI Logistics Assistant. Speak English. Say "Hey Photon" to activate voice. And How Can I assist you in Shipping, Quote and Tracking?</div>
     </div>
 
     <div class="chat-input">
