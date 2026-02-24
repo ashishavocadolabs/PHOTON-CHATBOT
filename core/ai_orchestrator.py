@@ -823,15 +823,29 @@ def format_shipment(result):
             "response": result.get("message") or result.get("error") or "Shipment failed."
         }
 
-
     data = result.get("data", {})
+
+    carrier = (
+        data.get("carrierName")
+        or data.get("carrierCode")
+        or "Not Available"
+    )
+
+    tracking = (
+        data.get("trackingNo")
+        or data.get("trackingNumber")
+        or "Not Available"
+    )
+
+    # Photon API does NOT return AWB separately
+    awb = data.get("awbNumber") or tracking
 
     return {
         "response":
             "✅ Shipment Created Successfully!\n\n"
-            f"🚚 Courier: {data.get('carrierCode')}\n"
-            f"📦 Tracking Number: {data.get('trackingNo') or data.get('trackingNumber')}\n"
-            f"🧾 AWB: {data.get('awbNumber')}"
+            f"🚚 Courier: {carrier}\n"
+            f"📦 Tracking Number: {tracking}\n"
+            f"🧾 AWB: {awb}"
     }
 
 

@@ -185,7 +185,7 @@ body {
 
 .chat-messages::before {
     content:"";
-    position:absolute;
+    position:fixed;
     inset:0;
     background: url('/static/photon-img.jpeg') center center no-repeat;
     background-size: 300px;
