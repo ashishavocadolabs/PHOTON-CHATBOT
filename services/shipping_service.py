@@ -168,8 +168,47 @@ def get_all_shipto_addresses():
     ]
 
     debug_log("USER SHIPTO ADDRESSES", active)
+    debug_log("LOGGED USER ID", get_logged_user_id())
     return active
 
+# CREATE NEW SHIPTO ADDRESS
+def save_new_shipto_address(state):
+
+    url = f"{BASE_URL}/api/Common/SaveAddress"
+
+    user_id = get_logged_user_id()
+
+    payload = {
+        "addressId": 0,
+        "addressType": "ShipTo",
+        "addressName": state.get("new_name"),
+        "name": state.get("new_name"),
+        "address1": state.get("new_address1"),
+        "address2": state.get("new_address2") or "",
+        "address3": "",
+        "postalCode": state.get("new_postalCode"),
+        "city": state.get("new_city"),
+        "state": state.get("new_state"),
+        "country": "IN",
+        "phone": state.get("new_phone"),
+        "emailId": state.get("new_email"),
+        "priority": False,
+        "createdBy": user_id,
+        "isActive": True,
+        "oneTimeLocation": False
+    }
+
+    debug_log("SAVE ADDRESS PAYLOAD", payload)
+
+    response = safe_request("POST", url, json=payload, headers=get_headers())
+
+    if isinstance(response, dict):
+        return {"statusCode": 500, "error": response["error"]}
+
+    if response.status_code != 200:
+        return {"statusCode": response.status_code, "error": response.text}
+
+    return response.json()
 
 #default warehouse selection logic
 def get_default_warehouse():

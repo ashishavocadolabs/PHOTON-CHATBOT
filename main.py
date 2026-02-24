@@ -915,3 +915,7 @@ async def chat(request: ChatRequest):
 async def reset_chat():
     reset_state()
     return {"status": "reset done"}
+
+@app.get("/favicon.ico")
+async def favicon():
+    return {}

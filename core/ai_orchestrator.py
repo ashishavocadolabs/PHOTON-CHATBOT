@@ -5,11 +5,14 @@ from groq import Groq
 from dotenv import load_dotenv
 from services.auth_service import get_logged_user_name
 from services.shipping_service import (
+    debug_log,
     get_quote,
     get_tracking,
     create_shipment,
     get_all_shipto_addresses,
-    get_default_warehouse
+    get_default_warehouse,
+    save_new_shipto_address,
+    get_pincode_details
 )
 
 load_dotenv()
@@ -53,6 +56,15 @@ conversation_state = {
     "shipto": None,
     "shipto_selection_mode": False,
     "language": "english",
+
+    # New Address Creation
+    "new_name": None,
+    "new_phone": None,
+    "new_email": None,
+    "new_address1": None,
+    "new_address2": None,
+    "new_postalCode": None,
+    "new_address_mode": False,
 }
 
 
@@ -88,7 +100,21 @@ def reset_state():
         "available_shipto": [],
         "shipto": None,
         "shipto_selection_mode": False,
-    })
+
+        # New Address Creation
+        "new_name": None,
+        "new_phone": None,
+        "new_email": None,
+        "new_address1": None,
+        "new_address2": None,
+        "new_postalCode": None,
+        "new_city": None,
+        "new_state": None,
+        "new_address_mode": False,
+
+        "flow_mode": None,
+        "awaiting_confirmation": False,
+        })
 
     conversation_state["available_services"] = []
     conversation_state["available_warehouses"] = []
@@ -224,19 +250,15 @@ def handle_chat(user_message):
         msg = user_message.lower().strip()
 
         greetings = ["hi", "hello", "hey", "hy", "hii", "heyy"]
+        hindi_greetings = ["namaste", "namaskar"]
 
         if any(msg.startswith(g) for g in greetings):
             reset_state()
             name_part = user_name if user_name else "there"
-
             return {
                 "response": f"Hi {name_part} 👋\nI can help you with shipping quotes and shipment tracking."
             }
-        
-        hindi_greetings = ["namaste", "namaskar"]
 
-        if any(msg.startswith(g) for g in greetings):
-            ...
         elif any(msg.startswith(g) for g in hindi_greetings):
             reset_state()
             name_part = user_name if user_name else "there"
@@ -339,6 +361,10 @@ def handle_chat(user_message):
                     "label": label,
                     "value": str(i)
                 })
+            options.append({
+                "label": "➕ Add New Address",
+                "value": "add_new"
+            })
 
             return {
                 "response": "🏠 Select Ship To Address:",
@@ -346,25 +372,139 @@ def handle_chat(user_message):
             }
 
         # ================= SHIP TO SELECTION FLOW =================
-        if conversation_state["shipto_selection_mode"] and user_message.isdigit():
+        if conversation_state["shipto_selection_mode"]:
 
-            index = int(user_message)
-            shipto_list = conversation_state["available_shipto"]
+        # ---------- Add New Address ----------
+            if user_message == "add_new":
+                conversation_state["new_address_mode"] = True
+                conversation_state["shipto_selection_mode"] = False
+                return {
+                    "response":
+                    "➕ Please enter new Ship To details step-by-step:\n\n"
+                    "1️⃣ Name\n"
+                    "2️⃣ Phone\n"
+                    "3️⃣ Email\n"
+                    "4️⃣ Address Line 1\n"
+                    "5️⃣ Address Line 2\n"
+                    "6️⃣ Postal Code\n"
+                    "7️⃣ City\n"
+                    "8️⃣ State"
+                }
 
-            if index < 1 or index > len(shipto_list):
-                return {"response": "Invalid Ship To selection."}
+            # ---------- Normal Selection ----------
+            if user_message.isdigit():
+                index = int(user_message)
+                shipto_list = conversation_state["available_shipto"]
 
-            conversation_state["shipto"] = shipto_list[index - 1]
-            conversation_state["shipto_selection_mode"] = False
+                if index < 1 or index > len(shipto_list):
+                    return {"response": "Invalid Ship To selection."}
 
-            # NOW create shipment
-            result = create_shipment(conversation_state)
-            response = format_shipment(result)
+                conversation_state["shipto"] = shipto_list[index - 1]
+                conversation_state["shipto_selection_mode"] = False
 
-            if result.get("statusCode") == 200:
-                reset_state()
+                # NOW create shipment
+                # DEBUG BEFORE SHIPMENT
+                from services.shipping_service import debug_log
+                debug_log("FINAL SHIPTO USED", conversation_state.get("shipto"))
 
-            return response
+                # create shipment
+                result = create_shipment(conversation_state)
+                response = format_shipment(result)
+
+                if result.get("statusCode") == 200:
+                    reset_state()
+
+                return response
+            
+        # ================= NEW ADDRESS CREATION FLOW =================
+
+        if conversation_state.get("new_address_mode"):
+
+            msg = user_message.strip()
+
+            if not conversation_state["new_name"]:
+                conversation_state["new_name"] = msg
+                return {"response": "Enter Phone:"}
+
+            if not conversation_state["new_phone"]:
+                phone = re.sub(r"\D", "", msg)
+
+                if len(phone) != 10:
+                    return {"response": "Phone must be 10 digits."}
+
+                conversation_state["new_phone"] = phone
+                return {"response": "Enter Email:"}
+
+            if not conversation_state["new_email"]:
+                if not re.match(r"[^@]+@[^@]+\.[^@]+", msg):
+                    return {"response": "Invalid email format."}
+
+                conversation_state["new_email"] = msg
+                return {"response": "Enter Address Line 1:"}
+
+            if not conversation_state["new_address1"]:
+                conversation_state["new_address1"] = msg
+                return {"response": "Enter Address Line 2 (or type skip):"}
+
+            if not conversation_state["new_address2"]:
+                if msg.lower() == "skip":
+                    conversation_state["new_address2"] = ""
+                else:
+                    conversation_state["new_address2"] = msg
+
+                return {"response": "Enter Postal Code:"}
+
+            if not conversation_state["new_postalCode"]:
+
+                postal = re.sub(r"\D", "", msg)
+
+                if not re.match(r"^\d{6}$", postal):
+                    return {"response": "Postal code must be 6 digits."}
+
+                pin_data = get_pincode_details(postal)
+
+                if not pin_data:
+                    return {"response": "Invalid or unsupported postal code."}
+
+                conversation_state["new_postalCode"] = postal
+                conversation_state["new_city"] = pin_data["city"]
+                conversation_state["new_state"] = pin_data["state"]
+
+                # ✅ SAVE ADDRESS TO LOGGED-IN ACCOUNT
+                save_result = save_new_shipto_address(conversation_state)
+
+                if save_result.get("statusCode") != 200:
+                    return {"response": "Failed to save address. Please try different data."}
+
+                # fetch updated list
+                updated_shipto = get_all_shipto_addresses()
+
+                if not updated_shipto:
+                    return {"response": "Address saved but unable to fetch ShipTo list."}
+
+                new_address_id = save_result.get("data")
+
+                updated_shipto = get_all_shipto_addresses()
+
+                new_address = next(
+                    (a for a in updated_shipto if str(a.get("addressId")) == str(new_address_id)),
+                    None
+                )
+
+                if not new_address:
+                    return {"response": "Address saved but not retrievable."}
+
+                conversation_state["shipto"] = new_address
+                conversation_state["new_address_mode"] = False
+
+                # create shipment
+                result = create_shipment(conversation_state)
+                response = format_shipment(result)
+
+                if result.get("statusCode") == 200:
+                    reset_state()
+
+                return response
 
         # ================= COURIER SELECTION FLOW =================
         if (
