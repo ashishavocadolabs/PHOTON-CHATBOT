@@ -400,12 +400,17 @@ def handle_chat(user_message):
             conversation_state["carrierCode"] = selected.get("carrierCode")
             conversation_state["serviceCode"] = selected.get("serviceCode")
 
+            conversation_state["carrierType"] = selected.get("carrierType")
+
             conversation_state["awaiting_confirmation"] = True
             return {"response": "Confirm shipment? (yes / no)"}
 
         # ================= CONFIRMATION =================
         if conversation_state["awaiting_confirmation"]:
             if msg == "yes":
+                if not conversation_state.get("carrierType"):
+                    return {"response": "Carrier type missing. Please reselect service."}
+
                 result = create_shipment(conversation_state)
                 reset_state()
                 return format_shipment(result)
@@ -825,7 +830,7 @@ def format_shipment(result):
         "response":
             "✅ Shipment Created Successfully!\n\n"
             f"🚚 Courier: {data.get('carrierCode')}\n"
-            f"📦 Tracking Number: {data.get('trackingNumber')}\n"
+            f"📦 Tracking Number: {data.get('trackingNo') or data.get('trackingNumber')}\n"
             f"🧾 AWB: {data.get('awbNumber')}"
     }
 
