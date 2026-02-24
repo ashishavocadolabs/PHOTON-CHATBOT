@@ -3,8 +3,10 @@ from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 from core.ai_orchestrator import handle_chat, reset_state
 from services.auth_service import get_logged_user_name
+from fastapi.staticfiles import StaticFiles
 
 app = FastAPI()
+app.mount("/static", StaticFiles(directory="static"), name="static")
 
 class ChatRequest(BaseModel):
     message: str
@@ -31,25 +33,107 @@ body {
     position: fixed;
     bottom: 20px;
     right: 20px;
-    background: #2f6f6f;
-    color: white;
+    width: 50px;
+    height: 50px;
     border-radius: 50%;
-    width: 55px;
-    height: 55px;
+    background: #2f6f6f;
+    color: #00f2fe;
     display: flex;
     align-items: center;
     justify-content: center;
     cursor: pointer;
-    font-size: 22px;
-    box-shadow: 0 6px 20px rgba(0,0,0,0.2);
-    transition: 0.3s;
+    font-size: 24px;
+    transition: 0.3s ease;
+    z-index: 1000;
+    overflow: visible;
+}
+
+/* ===== AI ENERGY RING SYSTEM ===== */
+
+.chat-button.voice-active::before,
+.chat-button.voice-active::after {
+    content: "";
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    z-index: -1;
+}
+
+/* 🔥 Rotating Neon Border */
+.chat-button.voice-active::before {
+    padding: 4px;
+    background: conic-gradient(
+        #00f2fe,
+        #00c6ff,
+        #00f2fe,
+        #00ffcc,
+        #00f2fe
+    );
+    animation: rotateRing 3s linear infinite;
+    mask:
+        linear-gradient(#000 0 0) content-box,
+        linear-gradient(#000 0 0);
+    -webkit-mask:
+        linear-gradient(#000 0 0) content-box,
+        linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+            mask-composite: exclude;
+}
+
+/* 🌊 Outer Ripple Wave */
+.chat-button.voice-active::after {
+    border: 2px solid #00f2fe;
+    animation: rippleWave 2s infinite;
+}
+
+/* ✨ Neon Glow Core */
+.chat-button.voice-active {
+    animation: pulseCore 1.8s infinite ease-in-out;
+    box-shadow:
+        0 0 10px #00f2fe,
+        0 0 25px #00f2fe,
+        0 0 50px #00c6ff,
+        0 0 80px rgba(0,242,254,0.6);
+}
+
+/* ===== Animations ===== */
+
+@keyframes rotateRing {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+@keyframes rippleWave {
+    0% {
+        transform: scale(1);
+        opacity: 0.8;
+    }
+    70% {
+        transform: scale(1.6);
+        opacity: 0;
+    }
+    100% {
+        transform: scale(1.6);
+        opacity: 0;
+    }
+}
+
+@keyframes pulseCore {
+    0% {
+        transform: scale(1);
+    }
+    50% {
+        transform: scale(1.08);
+    }
+    100% {
+        transform: scale(1);
+    }
 }
 .chat-button:hover {
     transform: scale(1.05);
 }
-.chat-button.listening {
-    background:#c0392b;
-}
+
 
 /* Chat Box */
 .chat-box {
@@ -90,14 +174,24 @@ body {
     font-weight: 600;
 }
 
-/* Messages Area */
 .chat-messages {
     flex:1;
     padding:15px;
     overflow-y:auto;
-    background:#f4f6f8;
+    background:#ffffff;   /* Full White */
+    color:#000000;
+    position:relative;
 }
 
+.chat-messages::before {
+    content:"";
+    position:absolute;
+    inset:0;
+    background: url('/static/photon-img.jpeg') center center no-repeat;
+    background-size: 300px;
+    opacity: 0.12;
+    pointer-events:none;
+}
 /* ===== LOGO ANIMATION AREA ===== */
 .logo-area {
     display:flex;
@@ -106,7 +200,6 @@ body {
     gap:8px;
     flex:1;
 }
-
 .box-icon, .truck-icon {
     position:relative;
     top:0;
@@ -122,28 +215,44 @@ body {
     font-weight:600;
     opacity:1;
 }
+/* ===== PREMIUM HEADER ICON ===== */
+
 .header-icon {
-    width:32px;
-    height:32px;
+    width: 36px;
+    height: 36px;
     display:flex;
     align-items:center;
     justify-content:center;
     cursor:pointer;
-    border-radius:8px;
-    transition:0.3s;
+    border-radius:50%;
+    transition: all 0.3s ease;
+    background: rgba(255,255,255,0.12);
+    backdrop-filter: blur(6px);
+    box-shadow:
+        inset 0 0 5px rgba(255,255,255,0.2),
+        0 2px 6px rgba(0,0,0,0.25);
 }
 
 .header-icon svg {
     width:18px;
     height:18px;
-    fill:white;
     stroke:white;
     stroke-width:2;
+    fill:none;
+    transition: transform 0.4s ease, stroke 0.3s ease;
 }
 
+/* 🔥 Hover Neon Effect */
 .header-icon:hover {
-    background:rgba(255,255,255,0.15);
-    transform:scale(1.1);
+    background: rgba(0,242,254,0.2);
+    box-shadow:
+        0 0 8px #00f2fe,
+        0 0 15px #00f2fe,
+        inset 0 0 6px rgba(255,255,255,0.3);
+}
+
+.header-icon:hover svg {
+    stroke: #00f2fe;
 }
 /* Animations */
 @keyframes jumpBox {
@@ -162,14 +271,6 @@ body {
     to { transform: translateX(120%); opacity:0; }
 }
 
-/* Messages */
-.chat-messages {
-    flex:1;
-    padding:15px;
-    overflow-y:auto;
-    background:#0f2027;
-    color:white;
-}
 
 /* Bot Message */
 .bot {
@@ -201,8 +302,9 @@ body {
 }
 
 .bot {
-    background:#1e2a38;
-    border:1px solid #00f2fe;
+    background:#f4f6f8;
+    border:1px solid #2f6f6f;
+    color:black;
 }
 
 .user {
@@ -272,41 +374,37 @@ body {
     position: relative;
     border-radius: 0 0 16px 16px;
 }
+/* ===== PREMIUM SUBTLE BOTTOM BORDER ===== */
 
-/*  Premium Glow Effect */
-.chat-input::after {
-    content: "";
-    position: absolute;
-    inset: 0;
-    border-radius: 0 0 16px 16px;
-    pointer-events: none;
-    box-shadow: 
-        0 0 10px #00f2fe,
-        0 0 20px #00c6ff,
-        0 0 35px #00eaff;
-    opacity: 0.7;
-    animation: glowPulse 2s infinite ease-in-out;
+.chat-input {
+    position: relative;
+    border-top: 1px solid #e0e0e0;
 }
 
-/* Glow Animation */
-@keyframes glowPulse {
+/* Thin animated line */
+.chat-input::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    height: 2px;
+    width: 100%;
+    background: linear-gradient(
+        90deg,
+        transparent,
+        #00c6ff,
+        transparent
+    );
+    animation: subtleSlide 3s linear infinite;
+    opacity: 0.4;
+}
+
+@keyframes subtleSlide {
     0% {
-        box-shadow: 
-            0 0 5px #00f2fe,
-            0 0 10px #00f2fe,
-            0 0 15px #00f2fe;
-    }
-    50% {
-        box-shadow: 
-            0 0 15px #00f2fe,
-            0 0 25px #00f2fe,
-            0 0 40px #00f2fe;
+        transform: translateX(-100%);
     }
     100% {
-        box-shadow: 
-            0 0 5px #00f2fe,
-            0 0 10px #00f2fe,
-            0 0 15px #00f2fe;
+        transform: translateX(100%);
     }
 }
 
@@ -463,11 +561,11 @@ body {
 /* Hi bubble from chat button */
 .chat-hi-bubble {
     position: fixed;
-    bottom: 85px;
+    bottom: 80px;
     right: 20px;
     background: #2f6f6f;
     color: white;
-    padding: 6px 14px;
+    padding: 4px 10px;
     border-radius: 20px;
     font-size: 13px;
     opacity: 0;
@@ -503,28 +601,38 @@ body {
     100% { opacity:1; transform: translateY(0); }
 }
 
-/* 🔥 Glow when Mic is Active */
-.chat-box.listening-glow {
+/* 🔥 PREMIUM FLOATING LOGO GLOW */
+.chat-button.voice-active {
+    animation: premiumPulse 1.6s infinite ease-in-out;
     box-shadow:
-        0 0 15px #00f2fe,
-        0 0 30px #00f2fe,
-        0 0 50px #00f2fe;
-    transition: box-shadow 0.3s ease;
-    animation: micGlow 1.5s infinite alternate;
+        0 0 10px #00f2fe,
+        0 0 20px #00c6ff,
+        0 0 40px #00f2fe,
+        0 0 70px rgba(0,242,254,0.5);
 }
 
-@keyframes micGlow {
-    from {
+/* Smooth breathing animation */
+@keyframes premiumPulse {
+    0% {
+        transform: scale(1);
         box-shadow:
-            0 0 10px #00f2fe,
-            0 0 20px #00f2fe,
+            0 0 5px #00f2fe,
+            0 0 15px #00f2fe,
             0 0 30px #00f2fe;
     }
-    to {
+    50% {
+        transform: scale(1.08);
         box-shadow:
-            0 0 25px #00f2fe,
-            0 0 45px #00f2fe,
-            0 0 70px #00f2fe;
+            0 0 20px #00f2fe,
+            0 0 40px #00f2fe,
+            0 0 80px rgba(0,242,254,0.8);
+    }
+    100% {
+        transform: scale(1);
+        box-shadow:
+            0 0 5px #00f2fe,
+            0 0 15px #00f2fe,
+            0 0 30px #00f2fe;
     }
 }
 </style>
@@ -768,23 +876,20 @@ let wakeWord="hey photon";
 
 function toggleVoice(){
 
-    let chatBox = document.getElementById("chatBox");
+    let chatLogo = document.getElementById("chatBtn");
 
     if(listening){
 
         recognition.stop();
         listening=false;
-        document.getElementById("chatBtn").classList.remove("listening");
 
-        //  Remove glow
-        chatBox.classList.remove("listening-glow");
+        chatLogo.classList.remove("voice-active");
 
     }else{
 
         startVoice();
 
-        //  Add glow
-        chatBox.classList.add("listening-glow");
+        chatLogo.classList.add("voice-active");
     }
 }
 
@@ -872,10 +977,13 @@ async function resetChat(){
     // optional backend reset
     await fetch("/reset", { method: "POST" });
 
-    document.querySelector(".header-icon svg").style.transform = "rotate(360deg)";
+    let restartIcon = document.querySelector(".header-icon svg");
+
+    restartIcon.style.transform = "rotate(360deg)";
+
     setTimeout(()=>{
-        document.querySelector(".header-icon svg").style.transform = "rotate(0deg)";
-    },300);
+        restartIcon.style.transform = "rotate(0deg)";
+    },400);
 }
 
 function startHiBubble() {
