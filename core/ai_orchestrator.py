@@ -388,8 +388,15 @@ def handle_chat(user_message):
                 return {"response": "Invalid selection."}
 
             selected = services[idx]
-            conversation_state["carrierId"] = selected.get("carrierId")
-            conversation_state["serviceId"] = selected.get("serviceId")
+
+            # GUIDs
+            conversation_state["c_id"] = selected.get("carrierId")
+            conversation_state["s_id"] = selected.get("serviceId")
+
+            # Codes
+            conversation_state["carrierId"] = selected.get("carrierCode")
+            conversation_state["serviceId"] = selected.get("serviceCode")
+
             conversation_state["carrierCode"] = selected.get("carrierCode")
             conversation_state["serviceCode"] = selected.get("serviceCode")
 

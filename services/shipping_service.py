@@ -257,10 +257,18 @@ def create_shipment(state):
 
     payload = {
         "product": state.get("product"),
-        "carrierId": state.get("carrierId"),
-        "serviceId": state.get("serviceId"),
+
+        #  CORRECT FIELD MAPPING FOR QUICKSHIP
+        "carrierId": state.get("carrierId"),   # carrierCode
+        "serviceId": state.get("serviceId"),   # serviceCode
+        "c_id": state.get("c_id"),             # carrierId GUID
+        "s_id": state.get("s_id"),             # serviceId GUID
+
+        "carrierType": state.get("carrierType"),
+
         "quantity": quantity,
         "invoiceAmount": invoice_amount,
+        "shipAmount": invoice_amount,
 
         "shipFromAddressName": warehouse.get("addressName"),
         "organization": warehouse.get("name"),
@@ -283,8 +291,7 @@ def create_shipment(state):
         "weightUom": "KG",
         "lengthUom": "CM"
     }
-
-    final_payload = {"obj": payload}
+    final_payload = payload
 
     debug_log("QUICKSHIP PAYLOAD", final_payload)
 
