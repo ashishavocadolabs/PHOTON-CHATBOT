@@ -301,7 +301,10 @@ def handle_chat(user_message):
                 for i, w in enumerate(warehouses)
             ]
 
-            return {"response": "Sure! Let's create a shipment. 🏬 Please select a warehouse:"}
+            return {
+                "response": "Sure! Let's create a shipment. 🏬 Please select a warehouse:",
+                "options": options
+            }
 
         # Warehouse selection
         if conversation_state["flow_mode"] == "shipping" and not conversation_state["warehouse"] and user_message.isdigit():
@@ -507,13 +510,14 @@ CORE ROLE
 You ONLY assist with:
 
 1. Shipping Quotes
-2. Shipment Tracking
+2. creating shipments
+3. Shipment Tracking
 
 You do NOT answer unrelated questions.
 
 If user asks something outside shipping or tracking:
 Respond politely:
-"I can only assist with shipping quotes and shipment tracking."
+"I can only assist with shipping quotes, creating shipments, and shipment tracking."
 
 Do NOT repeat this unnecessarily if the conversation is already about shipping.
 
