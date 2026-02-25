@@ -97,11 +97,12 @@ def extract_quote_fields(message):
 
     # -------- PINCODES --------
     pincodes = re.findall(r"\b\d{6}\b", msg)
-    if len(pincodes) >= 1 and not conversation_state["from_pincode"]:
-        conversation_state["from_pincode"] = pincodes[0]
 
-    if len(pincodes) >= 2:
-        conversation_state["to_pincode"] = pincodes[1]
+    for pin in pincodes:
+        if not conversation_state["from_pincode"]:
+            conversation_state["from_pincode"] = pin
+        elif not conversation_state["to_pincode"]:
+            conversation_state["to_pincode"] = pin
 
     # -------- WEIGHT --------
     weight_patterns = [
@@ -115,16 +116,23 @@ def extract_quote_fields(message):
             conversation_state["weight"] = float(match.group(1))
             break
 
-    # If only number and weight missing
-    if not conversation_state["weight"]:
-        single_num = re.fullmatch(r"\d+(\.\d+)?", msg)
-        if single_num:
-            conversation_state["weight"] = float(single_num.group())
+    # SMART single number for weight (only if weight missing)
+    if (
+        conversation_state["flow_mode"] == "quote"
+        and not conversation_state["weight"]
+    ):
+        single_number = re.fullmatch(r"\d+(\.\d+)?", msg)
+        if single_number:
+            value = float(single_number.group())
+
+            # 🚫 DO NOT treat 6-digit numbers as weight (likely pincode)
+            if not re.fullmatch(r"\d{6}", msg) and value <= 1000:
+                conversation_state["weight"] = value
+                return
 
     # -------- DIMENSIONS --------
     dim_patterns = [
-        r'(\d+)[x×* ](\d+)[x×* ](\d+)',
-        r'dimension[s]?\s*(\d+)\s+(\d+)\s+(\d+)',
+        r'(\d+)[x×*](\d+)[x×*](\d+)',
         r'(\d+)\s+(\d+)\s+(\d+)'
     ]
 
@@ -136,6 +144,42 @@ def extract_quote_fields(message):
             conversation_state["height"] = float(match.group(3))
             break
 
+def detect_intent(message):
+    msg = message.lower()
+
+    quote_keywords = [
+        "quote", "rate", "price", "charges",
+        "cost", "pricing", "tariff"
+    ]
+
+    tracking_keywords = [
+        "track", "tracking", "status",
+        "where is my shipment", "awb"
+    ]
+
+    shipping_keywords = [
+        "ship", "shipping", "create shipment",
+        "send parcel", "book shipment"
+    ]
+
+    help_keywords = [
+        "help", "assist", "can you help"
+    ]
+
+    if any(word in msg for word in quote_keywords):
+        return "quote"
+
+    if any(word in msg for word in tracking_keywords):
+        return "tracking"
+
+    if any(word in msg for word in shipping_keywords):
+        return "shipping"
+
+    if any(word in msg for word in help_keywords):
+        return "help"
+
+    return None
+
 # =====================================================
 # MAIN HANDLER
 # =====================================================
@@ -144,6 +188,7 @@ def handle_chat(user_message):
     try:
         user_message = user_message.strip()
         msg = user_message.lower()
+        intent = detect_intent(msg)
         user_name = get_logged_user_name() or "there"
 
         # ================= CANCEL ANYTIME =================
@@ -159,23 +204,35 @@ def handle_chat(user_message):
             }
 
         # ================= TRACKING FLOW =================
-        if "track" in msg:
+        if intent == "tracking":
             reset_state()
             conversation_state["flow_mode"] = "tracking"
-            return {"response": "Please provide tracking number."}
+            return {"response": "Sure 👍 Please provide your tracking number."}
 
         if conversation_state["flow_mode"] == "tracking":
             result = get_tracking(user_message)
             reset_state()
             return format_tracking(result)
 
+        # ================= HELP INTENT =================
+        if intent == "help":
+            return {
+                "response":
+                f"Absolutely {user_name}! 😊\n\n"
+                "I can help you with:\n"
+                "• Shipping Quotes (rates & pricing)\n"
+                "• Creating Shipments\n"
+                "• Shipment Tracking\n\n"
+                "Which one do you need help with?"
+            }
         # ================= QUOTE FLOW =================
-        if "quote" in msg:
+        if intent == "quote":
             reset_state()
             conversation_state["flow_mode"] = "quote"
             return {
                 "response":
-                "📦 Please provide:\n"
+                "📦 Sure! I can help you with shipping rates.\n\n"
+                "Please provide:\n"
                 "From Pincode\n"
                 "To Pincode\n"
                 "Weight (kg)\n"
@@ -186,18 +243,35 @@ def handle_chat(user_message):
 
             extract_quote_fields(user_message)
 
-            required_fields = ["from_pincode", "to_pincode", "weight", "length", "width", "height"]
+            required_fields = [
+                "from_pincode",
+                "to_pincode",
+                "weight",
+                "length",
+                "width",
+                "height"
+            ]
 
             missing = [f for f in required_fields if not conversation_state.get(f)]
+
             if missing:
-                return {"response": f"Please provide: {', '.join(missing)}"}
 
-            if not is_valid_pincode(conversation_state["from_pincode"]):
-                return {"response": "From pincode must be 6 digits."}
+                readable = {
+                    "from_pincode": "From Pincode",
+                    "to_pincode": "To Pincode",
+                    "weight": "Weight (kg)",
+                    "length": "Length (cm)",
+                    "width": "Width (cm)",
+                    "height": "Height (cm)"
+                }
 
-            if not is_valid_pincode(conversation_state["to_pincode"]):
-                return {"response": "To pincode must be 6 digits."}
+                missing_readable = [readable[m] for m in missing]
 
+                return {
+                    "response": "Please provide:\n" + "\n".join(missing_readable)
+                }
+
+                #  All fields available → call API
             result = get_quote(
                 conversation_state["from_pincode"],
                 conversation_state["to_pincode"],
@@ -207,12 +281,12 @@ def handle_chat(user_message):
                 conversation_state["height"]
             )
 
-            response = format_quote(result)  # FORMAT FIRST
-            reset_state()                    # RESET AFTER
+            response = format_quote(result)
+            reset_state()
             return response
 
         # ================= SHIPPING FLOW =================
-        if "shipping" in msg or "create shipment" in msg:
+        if intent == "shipping":
             reset_state()
             conversation_state["flow_mode"] = "shipping"
 
@@ -227,7 +301,7 @@ def handle_chat(user_message):
                 for i, w in enumerate(warehouses)
             ]
 
-            return {"response": "🏬 Select Warehouse:", "options": options}
+            return {"response": "Sure! Let's create a shipment. 🏬 Please select a warehouse:"}
 
         # Warehouse selection
         if conversation_state["flow_mode"] == "shipping" and not conversation_state["warehouse"] and user_message.isdigit():
@@ -567,7 +641,7 @@ If user says:
 hi / hello / hey
 
 Respond:
-"Hi {user_name}! I can help you with shipping quotes and shipment tracking."
+"Hi {user_name}! I can help you with shipping quotes, creating shipments, and shipment tracking."
 
 Do NOT reset conversation unnecessarily.
 

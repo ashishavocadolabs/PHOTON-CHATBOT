@@ -60,7 +60,7 @@ body {
     z-index: -1;
 }
 
-/* 🔥 Rotating Neon Border */
+/*  Rotating Neon Border */
 .chat-button.voice-active::before {
     padding: 4px;
     background: conic-gradient(
@@ -81,13 +81,13 @@ body {
             mask-composite: exclude;
 }
 
-/* 🌊 Outer Ripple Wave */
+/*  Outer Ripple Wave */
 .chat-button.voice-active::after {
     border: 2px solid #00f2fe;
     animation: rippleWave 2s infinite;
 }
 
-/* ✨ Neon Glow Core */
+/*  Neon Glow Core */
 .chat-button.voice-active {
     animation: pulseCore 1.8s infinite ease-in-out;
     box-shadow:
@@ -178,19 +178,21 @@ body {
     flex:1;
     padding:15px;
     overflow-y:auto;
-    background:#ffffff;   /* Full White */
+    background:#f2f3f7;
     color:#000000;
     position:relative;
+    z-index:1;
 }
 
 .chat-messages::before {
     content:"";
-    position:fixed;
+    position:fixed;     /*  change from fixed to absolute */
     inset:0;
     background: url('/static/photon-img.jpeg') center center no-repeat;
     background-size: 300px;
     opacity: 0.12;
     pointer-events:none;
+    z-index:0;
 }
 /* ===== LOGO ANIMATION AREA ===== */
 .logo-area {
@@ -242,7 +244,7 @@ body {
     transition: transform 0.4s ease, stroke 0.3s ease;
 }
 
-/* 🔥 Hover Neon Effect */
+/*  Hover Neon Effect */
 .header-icon:hover {
     background: rgba(0,242,254,0.2);
     box-shadow:
@@ -274,25 +276,30 @@ body {
 
 /* Bot Message */
 .bot {
-    background:#ffffff;
+    background:#ffffff;      /* solid white */
+    border:1px solid #2f6f6f;
+    color:#000000;
     padding:10px 14px;
     border-radius:12px;
     margin-bottom:10px;
     font-size:14px;
-    box-shadow:0 2px 6px rgba(0,0,0,0.05);
-    border-left:4px solid #2f6f6f;
+    box-shadow:0 2px 8px rgba(0,0,0,0.1);
+    position:relative;
+    z-index:2;               /* above watermark */
 }
-
 /* User Message */
 .user {
-    background:#2f6f6f;
-    color:white;
+    background:#00c6d7;        /* darker solid cyan */
+    color:#ffffff;             /* white text for contrast */
     padding:10px 14px;
     border-radius:12px;
     margin-bottom:10px;
     margin-left:auto;
     font-size:14px;
     max-width:80%;
+    position:relative;
+    z-index:2;                 /* above watermark */
+    opacity:1;                 /* force solid */
 }
 
 
@@ -601,7 +608,7 @@ body {
     100% { opacity:1; transform: translateY(0); }
 }
 
-/* 🔥 PREMIUM FLOATING LOGO GLOW */
+/*  PREMIUM FLOATING LOGO GLOW */
 .chat-button.voice-active {
     animation: premiumPulse 1.6s infinite ease-in-out;
     box-shadow:
