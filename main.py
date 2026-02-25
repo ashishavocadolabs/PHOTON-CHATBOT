@@ -524,14 +524,14 @@ body {
 }
 /* Bottom Tooltip (for header icons only) */
 .tooltip-bottom .tooltip-text {
-    top: 120%;
+    top: 50px;  /* same as header height */
     bottom: auto;
-    transform: translateX(-50%) translateY(-5px);
+    transform: translateX(-50%);
 }
 
 .tooltip-bottom .tooltip-text::after {
-    top: auto;
-    bottom: 100%;
+    top: -10px;
+    bottom: auto;
     border-color: transparent transparent #1f4e4e transparent;
 }
 @keyframes bounce {
@@ -642,6 +642,25 @@ body {
             0 0 30px #00f2fe;
     }
 }
+/* Restart rotate animation */
+.header-icon.spin svg {
+    animation: rotateRestart 0.6s linear;
+}
+
+@keyframes rotateRestart {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+/* Keep center title always visible */
+.logo-area {
+    position: relative;
+    z-index: 5;
+}
+
+/* Make tooltips lower than title */
+.tooltip-text {
+    z-index: 2;
+}
 </style>
 </head>
 
@@ -657,9 +676,10 @@ body {
     <div class="chat-header">
 
         <!-- LEFT RESET ICON -->
-        <div class="header-icon tooltip tooltip-bottom" onclick="resetChat()">
+        <div class="header-icon tooltip tooltip-bottom" onclick="resetChat(this)">
             <svg viewBox="0 0 24 24">
-                <path d="M12 6V3L8 7l4 4V8c2.76 0 5 2.24 5 5a5 5 0 11-5-5z"/>
+                <path d="M21 12a9 9 0 1 1-3-6.7"/>
+                <polyline points="21 3 21 9 15 9"/>
             </svg>
             <span class="tooltip-text">Restart</span>
         </div>
@@ -964,33 +984,40 @@ function closeChat(){
     setTimeout(()=>{ box.style.display="none"; },300);
 }
 
-async function resetChat(){
+let resetInProgress = false;
 
-    // stop voice if active
+async function resetChat(element){
+
+    if(resetInProgress) return;   // prevent multiple calls
+    resetInProgress = true;
+
+    // rotate animation
+    if(element){
+        element.classList.add("spin");
+        setTimeout(()=>{
+            element.classList.remove("spin");
+        },600);
+    }
+
+    // stop voice
     if(recognition && listening){
         recognition.stop();
         listening = false;
-        document.getElementById("chatBtn").classList.remove("listening");
+        document.getElementById("chatBtn").classList.remove("voice-active");
     }
 
     // clear UI
     let messagesDiv = document.getElementById("messages");
     messagesDiv.innerHTML = `
         <div class="bot">
-            Hello 👋 ${USER_NAME} I am your AI Logistics Assistant.
+            Hello 👋 ${USER_NAME}! I am your AI Logistics Assistant.
         </div>
     `;
 
-    // optional backend reset
+    // backend reset
     await fetch("/reset", { method: "POST" });
 
-    let restartIcon = document.querySelector(".header-icon svg");
-
-    restartIcon.style.transform = "rotate(360deg)";
-
-    setTimeout(()=>{
-        restartIcon.style.transform = "rotate(0deg)";
-    },400);
+    setTimeout(()=>{ resetInProgress = false; }, 800);
 }
 
 function startHiBubble() {
