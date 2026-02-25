@@ -300,8 +300,8 @@ body {
 }
 /* User Message */
 .user {
-    background:#ffffff;           /* White background */
-    color:#2f6f6f;                /* Photon text */
+    background:#5fa8a8;           /* Photon normal color background */
+    color:#000000;                /* Black text */
     border:1px solid #2f6f6f;     /* Photon border */
     padding:10px 14px;
     border-radius:12px;
