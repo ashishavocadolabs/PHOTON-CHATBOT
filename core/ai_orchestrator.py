@@ -323,7 +323,7 @@ def handle_chat(user_message):
             conversation_state["available_shipto"] = shipto
 
             options = [
-                {"label": f"{s.get('addressName')} ({s.get('postalCode')})", "value": str(i+1)}
+                {"label": f"Address: {s.get('addressName')} ({s.get('postalCode')}, {s.get('state')}), {s.get('country')} \nCity: {s.get('city')}, \nPhone: {s.get('phone')}", "value": str(i+1)}
                 for i, s in enumerate(shipto)
             ]
 

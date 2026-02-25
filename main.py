@@ -188,7 +188,7 @@ body {
     content:"";
     position:fixed;     /*  change from fixed to absolute */
     inset:0;
-    background: url('/static/photon-img.jpeg') center center no-repeat;
+    background: url('/static/photon-img.jpg') center center no-repeat;
     background-size: 300px;
     opacity: 0.12;
     pointer-events:none;
@@ -267,30 +267,42 @@ body {
     from { transform: translateX(-40px); opacity:0; }
     to { transform: translateX(0); opacity:1; }
 }
-
-@keyframes swipeOut {
-    from { transform: translateX(0); opacity:1; }
-    to { transform: translateX(120%); opacity:0; }
+@keyframes smoothErase {
+    0% {
+        opacity: 1;
+        transform: translateY(0);
+    }
+    40% {
+        opacity: 1;
+    }
+    70% {
+        opacity: 0.5;
+    }
+    100% {
+        opacity: 0;
+        transform: translateY(-8px);
+    }
 }
-
 
 /* Bot Message */
 .bot {
-    background:#ffffff;      /* solid white */
-    border:1px solid #2f6f6f;
-    color:#000000;
-    padding:10px 14px;
-    border-radius:12px;
-    margin-bottom:10px;
-    font-size:14px;
-    box-shadow:0 2px 8px rgba(0,0,0,0.1);
-    position:relative;
-    z-index:2;               /* above watermark */
+    background: #ffffff;
+    border: 1px solid #2f6f6f;
+    color: #1f2d2d;
+    padding: 12px 16px;
+    border-radius: 14px;
+    margin-bottom: 12px;
+    font-size: 14px;
+    max-width: 85%;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+    position: relative;
+    z-index: 2;
 }
 /* User Message */
 .user {
-    background:#00c6d7;        /* darker solid cyan */
-    color:#ffffff;             /* white text for contrast */
+    background:#ffffff;           /* White background */
+    color:#2f6f6f;                /* Photon text */
+    border:1px solid #2f6f6f;     /* Photon border */
     padding:10px 14px;
     border-radius:12px;
     margin-bottom:10px;
@@ -298,27 +310,15 @@ body {
     font-size:14px;
     max-width:80%;
     position:relative;
-    z-index:2;                 /* above watermark */
-    opacity:1;                 /* force solid */
+    z-index:2;
+    box-shadow:0 2px 6px rgba(0,0,0,0.08);
 }
-
 
 @keyframes fadeIn {
     from{opacity:0; transform:translateY(10px);}
     to{opacity:1; transform:translateY(0);}
 }
 
-.bot {
-    background:#f4f6f8;
-    border:1px solid #2f6f6f;
-    color:black;
-}
-
-.user {
-    background:#00f2fe;
-    color:black;
-    margin-left:auto;
-}
 
 /* Typing */
 .typing span {
@@ -339,9 +339,10 @@ body {
 }
 
 /* Sending Bubble */
+
 .sending {
-    background:#00f2fe;
-    color:black;
+    background:#2f6f6f;      /* Photon main color */
+    color:#ffffff;
     padding:10px 14px;
     border-radius:12px;
     margin-bottom:10px;
@@ -351,9 +352,8 @@ body {
     display:flex;
     align-items:center;
     gap:6px;
-    opacity:0.8;
+    box-shadow:0 2px 6px rgba(0,0,0,0.15);
 }
-
 /* Animated dots */
 .sending span {
     width:6px;
@@ -441,16 +441,22 @@ body {
     display:block;
     width:100%;
     text-align:left;
-    margin-top:6px;
-    padding:8px 10px;
-    border-radius:8px;
-    border:1px solid #dcdcdc;
-    background:#ffffff;
+    margin-top:8px;
+    padding:10px 12px;
+    border-radius:10px;
+    border:1px solid #2f6f6f;
+    background:#ffffff;     /* solid white */
+    color:#1f4e4e;
     cursor:pointer;
     font-size:13px;
+    position:relative;
+    z-index:2;               /* above watermark */
+    box-shadow:0 2px 6px rgba(0,0,0,0.08);
 }
+
 .option-btn:hover {
-    background:#f0f7f7;
+    background:#2f6f6f;
+    color:#ffffff;
 }
 
 /* Typing Animation */
@@ -779,10 +785,11 @@ function startHeaderLoop(){
         box.style.animation = "jumpBox 0.6s forwards";
         setTimeout(()=>{ hi.style.animation = "slideIn 0.6s forwards"; },800);
         setTimeout(()=>{ truck.style.animation = "slideIn 0.6s forwards"; },1200);
+        // Wait while fully visible
         setTimeout(()=>{
-            hi.style.animation = "swipeOut 0.8s forwards";
-            truck.style.animation = "swipeOut 0.8s forwards";
-        },3000);
+            hi.style.animation = "smoothErase 1.2s ease forwards";
+            truck.style.animation = "smoothErase 1.2s ease forwards";
+        },3500);
     }
 
     run();
