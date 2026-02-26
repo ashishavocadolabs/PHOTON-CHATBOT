@@ -331,23 +331,6 @@ def handle_chat(user_message):
 
             return {"response": "🏠 Select ShipTo Address:", "options": options}
 
-        # ShipTo selection
-        if conversation_state["warehouse"] and not conversation_state["shipto"]:
-
-            if user_message == "add_new":
-                conversation_state["new_address_mode"] = True
-                return {"response": "Enter Name:"}
-
-            if user_message.isdigit():
-                idx = int(user_message) - 1
-                shipto = conversation_state["available_shipto"]
-
-                if idx < 0 or idx >= len(shipto):
-                    return {"response": "Invalid ShipTo selection."}
-
-                conversation_state["shipto"] = shipto[idx]
-                return {"response": "Enter Product Name:"}
-
         # ================= NEW ADDRESS FLOW =================
         if conversation_state["new_address_mode"]:
 
@@ -393,6 +376,23 @@ def handle_chat(user_message):
 
                 return {"response": "Address saved. Enter Product Name:"}
 
+         # ShipTo selection
+        if conversation_state["warehouse"] and not conversation_state["shipto"]:
+
+            if user_message == "add_new":
+                conversation_state["new_address_mode"] = True
+                return {"response": "Enter Name:"}
+
+            if user_message.isdigit():
+                idx = int(user_message) - 1
+                shipto = conversation_state["available_shipto"]
+
+                if idx < 0 or idx >= len(shipto):
+                    return {"response": "Invalid ShipTo selection."}
+
+                conversation_state["shipto"] = shipto[idx]
+                return {"response": "Enter Product Name:"}
+            
         # ================= PRODUCT DETAILS =================
         if conversation_state["shipto"] and not conversation_state["product"]:
             conversation_state["product"] = user_message
