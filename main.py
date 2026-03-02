@@ -860,16 +860,52 @@ async function sendMessage() {
 
 /* Render Bot */
 function renderBotResponse(data) {
+
     let messagesDiv = document.getElementById("messages");
 
+    // 🔥 STEP 2: HANDLE EDIT FORM
+    if (data.type === "edit_form") {
+
+        let formDiv = document.createElement("div");
+        formDiv.className = "bot";
+
+        let formHTML = `<h4>📝 ${data.title}</h4>`;
+
+        data.fields.forEach(field => {
+            formHTML += `
+                <div style="margin-bottom:8px;">
+                    <label style="font-size:12px;">${field.label}</label><br>
+                    <input 
+                        type="${field.type}" 
+                        id="form_${field.name}" 
+                        value="${field.value || ''}"
+                        style="width:100%; padding:6px; border-radius:6px; border:1px solid #ccc;"
+                    />
+                </div>
+            `;
+        });
+
+        formHTML += `
+            <button 
+                style="margin-top:10px; padding:8px 12px; background:#2f6f6f; color:white; border:none; border-radius:8px; cursor:pointer;"
+                onclick="submitModifyForm()"
+            >
+                💾 Save & Continue
+            </button>
+        `;
+
+        formDiv.innerHTML = formHTML;
+        messagesDiv.appendChild(formDiv);
+        messagesDiv.scrollTop = messagesDiv.scrollHeight;
+
+        return; // ⛔ STOP normal rendering
+    }
+
+    // NORMAL RESPONSE FLOW
     let botDiv = document.createElement("div");
     botDiv.className = "bot";
     botDiv.innerText = data.response || "Something went wrong.";
     messagesDiv.appendChild(botDiv);
-
-    if(listening){
-        speakText(data.response);
-    }
 
     if (data.options && data.options.length > 0) {
         data.options.forEach(option => {
@@ -1049,6 +1085,32 @@ function startHiBubble() {
 }
 
 startHiBubble();
+
+/* Modify Form Submission */
+async function submitModifyForm() {
+
+    let inputs = document.querySelectorAll("[id^='form_']");
+    let formData = {};
+
+    inputs.forEach(input => {
+        let key = input.id.replace("form_", "");
+        formData[key] = input.value;
+    });
+
+    showTyping();
+
+    let response = await fetch("/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+            message: "submit_modify_form:" + JSON.stringify(formData)
+        })
+    });
+
+    let data = await response.json();
+    removeTyping();
+    renderBotResponse(data);
+}
 </script>
 
 </body>

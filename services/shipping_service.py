@@ -321,3 +321,22 @@ def get_tracking(tracking_number):
         return {"statusCode": response.status_code, "error": response.text}
 
     return response.json()
+
+def get_recent_shipments(date):
+    url = f"{BASE_URL}/api/Business/ShipmentTracking"
+
+    payload = {
+        "date": date,
+        "carrierId": "",
+        "trackingNumber": ""
+    }
+
+    response = safe_request("POST", url, json=payload, headers=get_headers())
+
+    if isinstance(response, dict):
+        return {"statusCode": 500, "error": response["error"]}
+
+    if response.status_code != 200:
+        return {"statusCode": response.status_code, "error": response.text}
+
+    return response.json()

@@ -1,3 +1,5 @@
+from collections import Counter
+from datetime import timedelta
 import os
 import json
 import re
@@ -13,12 +15,68 @@ from services.shipping_service import (
     get_default_warehouse,
     save_new_shipto_address,
     get_pincode_details,
-    get_all_warehouses
+    get_all_warehouses,
+    get_recent_shipments  
 )
 
 load_dotenv()
 client = Groq(api_key=os.getenv("GROQ_API_KEY"))
 
+# recent shipments analysis for better response generation (not used currently, can be integrated in future)
+def analyze_recent_shipments(data):
+
+    shipments = data.get("data", [])
+
+    if not shipments:
+        return None
+
+    from_cities = []
+    to_cities = []
+    weights = []
+    lengths = []
+    widths = []
+    heights = []
+
+    for s in shipments:
+
+        from_cities.append(s.get("cityFrom"))
+        to_cities.append(s.get("shipToCityName"))
+
+        # SAFE WEIGHT
+        try:
+            weights.append(float(str(s.get("weight", "0")).split(",")[0]))
+        except:
+            continue
+
+        # SAFE LENGTH
+        try:
+            lengths.append(float(str(s.get("length", "0")).split(",")[0]))
+        except:
+            continue
+
+        # SAFE WIDTH
+        try:
+            widths.append(float(str(s.get("width", "0")).split(",")[0]))
+        except:
+            continue
+
+        # SAFE HEIGHT
+        try:
+            heights.append(float(str(s.get("height", "0")).split(",")[0]))
+        except:
+            continue
+
+    if not weights:
+        return None
+
+    return {
+        "from_city": Counter(from_cities).most_common(1)[0][0],
+        "to_city": Counter(to_cities).most_common(1)[0][0],
+        "weight": Counter(weights).most_common(1)[0][0],
+        "length": Counter(lengths).most_common(1)[0][0],
+        "width": Counter(widths).most_common(1)[0][0],
+        "height": Counter(heights).most_common(1)[0][0],
+    }
 # =====================================================
 # GLOBAL CONVERSATION STATE
 # =====================================================
@@ -69,7 +127,11 @@ def reset_state():
         "new_city": None,
         "new_state": None,
 
-        "language": "english"
+        "language": "english",
+
+        "recent_shipments": [],
+        "selected_past_shipment": None,
+        "modify_mode": False,
     }
 
 reset_state()
@@ -145,37 +207,19 @@ def extract_quote_fields(message):
             break
 
 def detect_intent(message):
-    msg = message.lower()
+    msg = message.lower().strip()
 
-    quote_keywords = [
-        "quote", "rate", "price", "charges",
-        "cost", "pricing", "tariff"
-    ]
-
-    tracking_keywords = [
-        "track", "tracking", "status",
-        "where is my shipment", "awb"
-    ]
-
-    shipping_keywords = [
-        "ship", "shipping", "create shipment",
-        "send parcel", "book shipment"
-    ]
-
-    help_keywords = [
-        "help", "assist", "can you help"
-    ]
-
-    if any(word in msg for word in quote_keywords):
-        return "quote"
-
-    if any(word in msg for word in tracking_keywords):
-        return "tracking"
-
-    if any(word in msg for word in shipping_keywords):
+    # Strict matching (avoid substring issue like "ship_same")
+    if msg in ["ship", "shipping", "create shipment", "book shipment"]:
         return "shipping"
 
-    if any(word in msg for word in help_keywords):
+    if "quote" in msg or "rate" in msg or "price" in msg:
+        return "quote"
+
+    if "track" in msg or "tracking" in msg:
+        return "tracking"
+
+    if "help" in msg:
         return "help"
 
     return None
@@ -286,9 +330,67 @@ def handle_chat(user_message):
             return response
 
         # ================= SHIPPING FLOW =================
-        if intent == "shipping":
+        if intent == "shipping" and conversation_state["flow_mode"] is None:
             reset_state()
             conversation_state["flow_mode"] = "shipping"
+
+            from datetime import datetime, timedelta
+
+            today = datetime.now()
+            all_shipments = []
+
+            for i in range(30):  # last 7 days
+                check_date = (today -   timedelta(days=i)).strftime("%Y-%m-%d")
+                recent = get_recent_shipments(check_date)
+
+                if recent.get("statusCode") == 200 and recent.get("data"):
+                    all_shipments.extend(recent.get("data"))
+
+            if all_shipments:
+                # 🔥 AI ANALYSIS LAYER  
+                analysis = analyze_recent_shipments({"data": all_shipments})
+
+                if analysis:
+                    conversation_state["ai_suggestion"] = analysis
+
+                    return {
+                        "response":
+                            "📊 Shipment Insights (Last 30 Days)\n\n"
+                            f"• Most used route: {analysis['from_city']} → {analysis['to_city']}\n"
+                            f"• Most common weight: {analysis['weight']} kg\n"
+                            f"• Most common dimensions: "
+                            f"{analysis['length']}x{analysis['width']}x{analysis['height']} cm\n\n"
+                            "What would you like to do?",
+                        "options": [
+                            {"label": "🚀 Ship Using Most Frequent Details", "value": "smart_ship"},
+                            {"label": "📦 Choose From Recent Shipments", "value": "show_recent"},
+                            {"label": "🆕 Start Fresh Shipment", "value": "fresh"}
+                        ]
+                    }
+
+                shipments = all_shipments[:5]  # show last 5
+                conversation_state["recent_shipments"] = shipments
+
+                options = []
+
+                for i, s in enumerate(shipments, 1):
+                    label = (
+                        f"User Name: {s.get('userId') or 'Unknown User'} \n"
+                        f"{s.get('carrierId') or 'Unknown Carrier'} - {s.get('carrierType') or 'Unknown Service'}\n"
+                        f"Ship From: {s.get('cityFrom') or 'Unknown'} → "
+                        f"Ship To: {s.get('shipToCityName') or 'Unknown'} \n "
+                        f"Weight: {s.get('weight')}kg | \n"
+                        f"Dimensions: {s.get('length')}x{s.get('width')}x{s.get('height')}\n"
+                        f"Date Created: {s.get('shipDateBegin')}"
+                    )
+                    options.append({"label": label, "value": f"past_{i}"})
+
+                options.append({"label": "🆕 Start Fresh Shipment", "value": "fresh"})
+
+                return {
+                    "response": "I found your recent shipments. Select one to continue:",
+                    "options": options
+                }
 
             warehouses = get_all_warehouses()
             if not warehouses:
@@ -305,7 +407,265 @@ def handle_chat(user_message):
                 "response": "Sure! Let's create a shipment. 🏬 Please select a warehouse:",
                 "options": options
             }
+        
+        # ================= PAST SHIPMENT SELECTION =================
+        if conversation_state["flow_mode"] == "shipping" and user_message.startswith("past_"):
 
+            index = int(user_message.split("_")[1]) - 1
+            shipments = conversation_state["recent_shipments"]
+
+            if index < 0 or index >= len(shipments):
+                return {"response": "Invalid selection."}
+
+            selected = shipments[index]
+            conversation_state["selected_past_shipment"] = selected
+
+            return {
+                "response": "What would you like to do?",
+                "options": [
+                    {"label": "🚚 Ship Same Details", "value": "ship_same"},
+                    {"label": "✏ Modify Details & Create New Shipment", "value": "modify_past"},
+                    {"label": "❌ Cancel", "value": "cancel"}
+                ]
+            }
+        
+        # ================= SMART SHIP =================
+        if user_message == "smart_ship":
+
+            analysis = conversation_state.get("ai_suggestion")
+
+            if not analysis:
+                return {"response": "No AI suggestion available."}
+
+            # Prefill state
+            conversation_state["weight"] = float(analysis["weight"])
+            conversation_state["length"] = float(analysis["length"])
+            conversation_state["width"] = float(analysis["width"])
+            conversation_state["height"] = float(analysis["height"])
+
+            # Auto match warehouse
+            warehouses = get_all_warehouses()
+            conversation_state["available_warehouses"] = warehouses
+
+            for w in warehouses:
+                if str(w.get("city","")).lower() == str(analysis["from_city"]).lower():
+                    conversation_state["warehouse"] = w
+                    break
+
+            shipto_list = get_all_shipto_addresses()
+            conversation_state["available_shipto"] = shipto_list
+
+            for s in shipto_list:
+                if str(s.get("city","")).lower() == str(analysis["to_city"]).lower():
+                    conversation_state["shipto"] = s
+                    break
+
+                if not conversation_state["warehouse"] or not conversation_state["shipto"]:
+                    return {"response": "Unable to auto-match addresses. Please select manually."}
+
+            # Call quote automatically
+            result = get_quote(
+                conversation_state["warehouse"]["postalCode"],
+                conversation_state["shipto"]["postalCode"],
+                conversation_state["weight"],
+                conversation_state["length"],
+                conversation_state["width"],
+                conversation_state["height"]
+            )
+
+            conversation_state["available_services"] = result.get("data",{}).get("servicesOnDate",[])
+
+            return format_quote(result)
+        
+        if user_message == "show_recent":
+
+            shipments = conversation_state.get("recent_shipments", [])
+
+            if not shipments:
+                return {"response": "No recent shipments found."}
+
+            options = []
+
+            for i, s in enumerate(shipments, 1):
+                label = (
+                    f"{s.get('carrierId')} - {s.get('carrierType')}\n"
+                    f"{s.get('cityFrom')} → {s.get('shipToCityName')} | "
+                    f"{s.get('weight')}kg | "
+                    f"{s.get('length')}x{s.get('width')}x{s.get('height')}"
+                )
+                options.append({"label": label, "value": f"past_{i}"})
+
+            options.append({"label": "🆕 Start Fresh Shipment", "value": "fresh"})
+
+            return {
+                "response": "Select one recent shipment:",
+                "options": options
+            }
+
+        # ================= SHIP SAME DETAILS =================
+        if user_message == "ship_same":
+
+            past = conversation_state["selected_past_shipment"]
+
+            # Prefill shipment details
+            conversation_state["weight"] = float(past.get("weight"))
+            conversation_state["length"] = float(past.get("length"))
+            conversation_state["width"] = float(past.get("width"))
+            conversation_state["height"] = float(past.get("height"))
+
+            # Static fallback product (can modify later)
+            conversation_state["product"] = "General Goods"
+            conversation_state["quantity"] = 1
+            conversation_state["invoice_amount"] = 1000
+            conversation_state["noOfBoxes"] = past.get("noOfPackages", 1)
+
+            # Get warehouse & shipto
+            warehouses = get_all_warehouses()
+            conversation_state["available_warehouses"] = warehouses
+
+            # Try auto-match warehouse
+            for w in warehouses:
+                if w.get("city") == past.get("cityFrom"):
+                    conversation_state["warehouse"] = w
+                    break
+
+            shipto_list = get_all_shipto_addresses()
+            conversation_state["available_shipto"] = shipto_list
+
+            for s in shipto_list:
+                if s.get("city") == past.get("shipToCityName"):
+                    conversation_state["shipto"] = s
+                    break
+
+            # If auto-match failed → fallback manual
+            if not conversation_state["warehouse"] or not conversation_state["shipto"]:
+                return {
+                    "response": "Please select warehouse to continue:",
+                    "options": [
+                        {"label": f"{w.get('addressName')} ({w.get('city')})", "value": str(i+1)}
+                        for i, w in enumerate(warehouses)
+                    ]
+                }
+
+            # Directly go to quote
+            result = get_quote(
+                conversation_state["warehouse"]["postalCode"],
+                conversation_state["shipto"]["postalCode"],
+                conversation_state["weight"],
+                conversation_state["length"],
+                conversation_state["width"],
+                conversation_state["height"]
+            )
+
+            conversation_state["available_services"] = result.get("data",{}).get("servicesOnDate",[])
+
+            return format_quote(result)
+        
+        #modify past shipment flow
+        if msg.strip() == "modify_past":
+
+            past = conversation_state.get("selected_past_shipment")
+
+            if not past:
+                return {"response": "No shipment selected. Please choose a shipment first."}
+
+            conversation_state["modify_mode"] = True
+
+            # -----------------------------
+            # Prefill numeric fields
+            # -----------------------------
+            conversation_state["weight"] = float(past.get("weight") or 0)
+            conversation_state["length"] = float(past.get("length") or 0)
+            conversation_state["width"] = float(past.get("width") or 0)
+            conversation_state["height"] = float(past.get("height") or 0)
+            conversation_state["noOfBoxes"] = int(past.get("noOfPackages") or 1)
+
+            conversation_state["product"] = "General Goods"
+            conversation_state["quantity"] = 1
+            conversation_state["invoice_amount"] = 0
+
+            # -----------------------------
+            # 🔥 CRITICAL FIX: AUTO MATCH
+            # -----------------------------
+            warehouses = get_all_warehouses()
+            conversation_state["available_warehouses"] = warehouses
+            conversation_state["warehouse"] = None
+
+            for w in warehouses:
+                if str(w.get("city", "")).strip().lower() == str(past.get("cityFrom", "")).strip().lower():
+                    conversation_state["warehouse"] = w
+                    break
+
+            shipto_list = get_all_shipto_addresses()
+            conversation_state["available_shipto"] = shipto_list
+            conversation_state["shipto"] = None
+
+            for s in shipto_list:
+                if str(s.get("city", "")).strip().lower() == str(past.get("shipToCityName", "")).strip().lower():
+                    conversation_state["shipto"] = s
+                    break
+
+            if not conversation_state["warehouse"] or not conversation_state["shipto"]:
+                return {"response": "Unable to auto-match warehouse or ShipTo. Please select manually."}
+
+            # -----------------------------
+            # RETURN EDIT FORM
+            # -----------------------------
+            return {
+                "type": "edit_form",
+                "title": "Modify Shipment Details",
+                "submit_action": "submit_modify_form",
+                "fields": [
+                    {"name": "product", "label": "Product", "type": "text", "value": conversation_state["product"]},
+                    {"name": "quantity", "label": "Quantity", "type": "number", "value": conversation_state["quantity"]},
+                    {"name": "invoice_amount", "label": "Invoice Amount", "type": "number", "value": conversation_state["invoice_amount"]},
+                    {"name": "noOfBoxes", "label": "No of Boxes", "type": "number", "value": conversation_state["noOfBoxes"]},
+                    {"name": "weight", "label": "Weight (kg)", "type": "number", "value": conversation_state["weight"]},
+                    {"name": "length", "label": "Length (cm)", "type": "number", "value": conversation_state["length"]},
+                    {"name": "width", "label": "Width (cm)", "type": "number", "value": conversation_state["width"]},
+                    {"name": "height", "label": "Height (cm)", "type": "number", "value": conversation_state["height"]}
+                ]
+            }
+        # ================= MODIFY FORM SUBMIT =================
+        if user_message.startswith("submit_modify_form:"):
+
+            json_data = user_message.replace("submit_modify_form:", "")
+            updated = json.loads(json_data)
+
+            for key, value in updated.items():
+                conversation_state[key] = value
+
+            result = get_quote(
+                conversation_state["warehouse"]["postalCode"],
+                conversation_state["shipto"]["postalCode"],
+                float(conversation_state["weight"]),
+                float(conversation_state["length"]),
+                float(conversation_state["width"]),
+                float(conversation_state["height"])
+            )
+
+            conversation_state["available_services"] = result.get("data",{}).get("servicesOnDate",[])
+
+            return format_quote(result)
+        # ================= START FRESH =================
+        if user_message == "fresh":
+
+            warehouses = get_all_warehouses()
+            if not warehouses:
+                return {"response": "No warehouse found."}
+
+            conversation_state["available_warehouses"] = warehouses
+
+            options = [
+                {"label": f"{w.get('addressName')} ({w.get('city')})", "value": str(i+1)}
+                for i, w in enumerate(warehouses)
+            ]
+
+            return {
+                "response": "Sure! Let's create a new shipment. 🏬 Please select a warehouse:",
+                "options": options
+            }
+            
         # Warehouse selection
         if conversation_state["flow_mode"] == "shipping" and not conversation_state["warehouse"] and user_message.isdigit():
             idx = int(user_message) - 1
