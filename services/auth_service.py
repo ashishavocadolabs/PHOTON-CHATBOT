@@ -14,7 +14,8 @@ PASSWORD = os.getenv("password")
 token_cache = {
     "token": None,
     "user_id": None,
-    "name": None
+    "name": None,
+    "expires": None
 }
 
 

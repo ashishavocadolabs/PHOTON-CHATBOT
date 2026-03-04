@@ -45,7 +45,10 @@ def safe_request(method, url, **kwargs):
 
     except requests.exceptions.RequestException as e:
         debug_log("NETWORK ERROR", str(e))
-        return {"error": f"Network error: {str(e)}"}
+        return {
+            "statusCode":500,
+            "error":str(e)
+        }
 
 
 #get pincode details

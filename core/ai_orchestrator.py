@@ -7,7 +7,6 @@ from groq import Groq
 from dotenv import load_dotenv
 from services.auth_service import get_logged_user_name
 from services.shipping_service import (
-    debug_log,
     get_quote,
     get_tracking,
     create_shipment,
@@ -22,6 +21,90 @@ from services.shipping_service import (
 load_dotenv()
 client = Groq(api_key=os.getenv("GROQ_API_KEY"))
 
+LOCATION_ICON = """
+<svg viewBox="0 0 24 24" width="16" height="16" style="vertical-align:middle;margin-right:5px">
+<path d="M12 21s7-5.5 7-11a7 7 0 1 0-14 0c0 5.5 7 11 7 11z"/>
+<circle cx="12" cy="10" r="2.5"/>
+</svg>
+"""
+
+WEIGHT_ICON = """
+<svg viewBox="0 0 24 24" width="16" height="16" style="vertical-align:middle;margin-right:5px">
+<path d="M6 9h12l-1 10H7L6 9z"/>
+<path d="M9 9a3 3 0 0 1 6 0"/>
+</svg>
+"""
+
+DIM_ICON = """
+<svg viewBox="0 0 24 24" width="16" height="16" style="vertical-align:middle;margin-right:5px">
+<path d="M3 7h18M3 17h18"/>
+<path d="M6 7v10M18 7v10"/>
+</svg>
+"""
+
+BOX_ICON = """
+<svg viewBox="0 0 24 24" width="16" height="16" style="vertical-align:middle;margin-right:5px">
+<path d="M3 7l9-4 9 4-9 4-9-4z"/>
+<path d="M3 7v10l9 4 9-4V7"/>
+</svg>
+"""
+
+MONEY_ICON = """
+<svg viewBox="0 0 24 24" width="16" height="16" style="vertical-align:middle;margin-right:5px">
+<circle cx="12" cy="12" r="9"/>
+<path d="M9 12h6"/>
+<path d="M12 9v6"/>
+</svg>
+"""
+
+CALENDAR_ICON = """
+<svg viewBox="0 0 24 24" width="16" height="16" style="vertical-align:middle;margin-right:5px">
+<rect x="3" y="5" width="18" height="16" rx="2"/>
+<path d="M16 3v4M8 3v4M3 11h18"/>
+</svg>
+"""
+TRUCK_ICON = """
+<svg viewBox="0 0 24 24" width="16" height="16"
+style="vertical-align:middle;margin-right:5px">
+<rect x="1" y="3" width="15" height="13"/>
+<polygon points="16,8 20,8 23,11 23,16 16,16"/>
+<circle cx="5.5" cy="18.5" r="2.5"/>
+<circle cx="18.5" cy="18.5" r="2.5"/>
+</svg>
+"""
+WAREHOUSE_ICON = """
+<svg viewBox="0 0 24 24" width="16" height="16"
+style="vertical-align:middle;margin-right:6px">
+<path d="M3 9l9-6 9 6"/>
+<path d="M4 10v10h16V10"/>
+<path d="M9 21V12h6v9"/>
+</svg>
+"""
+
+HOME_ICON = """
+<svg viewBox="0 0 24 24" width="16" height="16"
+style="vertical-align:middle;margin-right:6px">
+<path d="M3 10l9-7 9 7"/>
+<path d="M5 10v10h14V10"/>
+</svg>
+"""
+
+PLUS_ICON = """
+<svg viewBox="0 0 24 24" width="16" height="16"
+style="vertical-align:middle;margin-right:6px">
+<path d="M12 5v14M5 12h14"/>
+</svg>
+"""
+
+CHART_ICON = """
+<svg viewBox="0 0 24 24" width="16" height="16"
+style="vertical-align:middle;margin-right:5px">
+<path d="M4 19V5"/>
+<path d="M10 19V9"/>
+<path d="M16 19V13"/>
+<path d="M22 19H2"/>
+</svg>
+"""
 # recent shipments analysis for better response generation (not used currently, can be integrated in future)
 def analyze_recent_shipments(data):
 
@@ -76,6 +159,42 @@ def analyze_recent_shipments(data):
         "length": Counter(lengths).most_common(1)[0][0],
         "width": Counter(widths).most_common(1)[0][0],
         "height": Counter(heights).most_common(1)[0][0],
+    }
+
+
+def get_smart_address_suggestion():
+
+    from datetime import datetime, timedelta
+
+    today = datetime.now()
+    all_shipments = []
+
+    for i in range(7):
+        check_date = (today - timedelta(days=i)).strftime("%Y-%m-%d")
+        recent = get_recent_shipments(check_date)
+
+        if recent.get("statusCode") == 200 and recent.get("data"):
+            all_shipments.extend(recent.get("data"))
+
+    if not all_shipments:
+        return None
+
+    from_cities = []
+    to_cities = []
+
+    for s in all_shipments:
+        if s.get("cityFrom"):
+            from_cities.append(s.get("cityFrom"))
+
+        if s.get("shipToCityName"):
+            to_cities.append(s.get("shipToCityName"))
+
+    if not from_cities or not to_cities:
+        return None
+
+    return {
+        "from_city": Counter(from_cities).most_common(1)[0][0],
+        "to_city": Counter(to_cities).most_common(1)[0][0]
     }
 # =====================================================
 # GLOBAL CONVERSATION STATE
@@ -244,11 +363,11 @@ def handle_chat(user_message):
         if msg in ["hi", "hello", "hey", "hii"]:
             reset_state()
             return {
-                "response": f"Hi {user_name} 👋\nWhat would you like to do today?",
+                "response": f"Hi {user_name}\nWhat would you like to do today?",
                 "options": [
-                {"label": "📦 Create Shipment", "value": "create shipment"},
-                {"label": "💰 Get Quote", "value": "quote"},
-                {"label": "🚚 Track Shipment", "value": "tracking"}
+                {"label": "Create Shipment", "value": "create shipment"},
+                {"label": "Get Quote", "value": "quote"},
+                {"label": "Track Shipment", "value": "tracking"}
             ]
         }
 
@@ -256,7 +375,7 @@ def handle_chat(user_message):
         if intent == "tracking":
             reset_state()
             conversation_state["flow_mode"] = "tracking"
-            return {"response": "Sure 👍 Please provide your tracking number."}
+            return {"response": "Sure! Please provide your tracking number."}
 
         if conversation_state["flow_mode"] == "tracking":
             result = get_tracking(user_message)
@@ -267,7 +386,7 @@ def handle_chat(user_message):
         if intent == "help":
             return {
                 "response":
-                f"Absolutely {user_name}! 😊\n\n"
+                f"Absolutely {user_name}!\n\n"
                 "I can help you with:\n"
                 "• Shipping Quotes (rates & pricing)\n"
                 "• Creating Shipments\n"
@@ -280,7 +399,7 @@ def handle_chat(user_message):
             conversation_state["flow_mode"] = "quote"
             return {
                 "response":
-                "📦 Sure! I can help you with shipping rates.\n\n"
+                "Sure! I can help you with shipping rates.\n\n"
                 "Please provide:\n"
                 "From Pincode\n"
                 "To Pincode\n"
@@ -338,6 +457,24 @@ def handle_chat(user_message):
         if intent == "shipping" and conversation_state["flow_mode"] is None:
             reset_state()
             conversation_state["flow_mode"] = "shipping"
+            # 🔥 SMART ADDRESS SUGGESTION
+            suggestion = get_smart_address_suggestion()
+
+            if suggestion:
+
+                conversation_state["address_ai"] = suggestion
+
+                return {
+                    "response":
+                    "Smart Address Suggestion\n\n"
+                    f"Most Used Ship From: {suggestion['from_city']}\n"
+                    f"Most Used Ship To: {suggestion['to_city']}\n\n"
+                    "Do you want to use these addresses?",
+                "options": [
+                    {"label": "Use Suggested Addresses", "value": "smart_address"},
+                    {"label": "Choose Warehouse Manually", "value": "manual_address"}
+                ]
+            }
 
             from datetime import datetime, timedelta
 
@@ -360,7 +497,7 @@ def handle_chat(user_message):
 
                     return {
                         "response":
-                            "📊 Shipment Insights (Last 30 Days)\n\n"
+                            f"{CHART_ICON} Shipment Insights (Last 30 Days)\n\n"
                             f"• Most used route: {analysis['from_city']} → {analysis['to_city']}\n"
                             f"• Most common weight: {analysis['weight']} kg\n"
                             f"• Most common dimensions: "
@@ -409,7 +546,7 @@ def handle_chat(user_message):
             ]
 
             return {
-                "response": "Sure! Let's create a shipment. 🏬 Please select a warehouse:",
+                "response": f"{WAREHOUSE_ICON} Please select a warehouse:",
                 "options": options
             }
         
@@ -465,8 +602,8 @@ def handle_chat(user_message):
                     conversation_state["shipto"] = s
                     break
 
-                if not conversation_state["warehouse"] or not conversation_state["shipto"]:
-                    return {"response": "Unable to auto-match addresses. Please select manually."}
+            if not conversation_state["warehouse"] or not conversation_state["shipto"]:
+                return {"response": "Unable to auto-match addresses. Please select manually."}
 
             # Call quote automatically
             result = get_quote(
@@ -643,15 +780,121 @@ def handle_chat(user_message):
             result = get_quote(
                 conversation_state["warehouse"]["postalCode"],
                 conversation_state["shipto"]["postalCode"],
-                float(conversation_state["weight"]),
-                float(conversation_state["length"]),
-                float(conversation_state["width"]),
-                float(conversation_state["height"])
+                conversation_state["weight"],
+                conversation_state["length"],
+                conversation_state["width"],
+                conversation_state["height"]
             )
 
-            conversation_state["available_services"] = result.get("data",{}).get("servicesOnDate",[])
+            services = result.get("data", {}).get("servicesOnDate", [])
+
+            conversation_state["available_services"] = services
+
+            # 🤖 AI COURIER SELECTION
+            best_service = select_best_courier(services)
+
+            if best_service:
+
+                conversation_state["carrierId"] = best_service.get("carrierCode")
+                conversation_state["serviceId"] = best_service.get("serviceCode")
+
+                conversation_state["carrierCode"] = best_service.get("carrierCode")
+                conversation_state["serviceCode"] = best_service.get("serviceCode")
+
+                conversation_state["carrierType"] = best_service.get("carrierType")
+
+                conversation_state["awaiting_confirmation"] = True
+
+                return {
+                    "response":
+                    f"AI selected best courier automatically:\n\n"
+                    f"Carrier: {best_service.get('carrierCode')} - {best_service.get('serviceDescription')}\n"
+                    f"Price: ₹ {best_service.get('totalCharges')}\n"
+                    f"Arrival: {best_service.get('arrivalDate')}\n\n"
+                    "Confirm shipment?",
+                    "options": [
+                        {
+                            "label": """
+                            <span style="display:flex;align-items:center;gap:6px">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                            <path d="M5 13l4 4L19 7" stroke="currentColor" stroke-width="2"/>
+                            </svg>
+                            Yes, Create Shipment
+                            </span>
+                            """,
+                            "value": "yes"
+                        },
+                        {
+                            "label": """
+                            <span style="display:flex;align-items:center;gap:6px">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                            <path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2"/>
+                            </svg>
+                            Choose Manually
+                            </span>
+                            """,
+                            "value": "manual_service"
+                        }
+                    ]
+                }
 
             return format_quote(result)
+        
+        # ================= SMART ADDRESS =================
+        if user_message == "smart_address":
+
+            suggestion = conversation_state.get("address_ai")
+
+            if not suggestion:
+                return {"response": "No smart address suggestion available."}
+
+            warehouses = get_all_warehouses()
+            shipto = get_all_shipto_addresses()
+
+            for w in warehouses:
+                if str(w.get("city","")).lower() == str(suggestion["from_city"]).lower():
+                    conversation_state["warehouse"] = w
+                    break
+
+            for s in shipto:
+                if str(s.get("city","")).lower() == str(suggestion["to_city"]).lower():
+                    conversation_state["shipto"] = s
+                    break
+
+            if conversation_state["warehouse"] and conversation_state["shipto"]:
+                return {
+                    "response": f"""
+                    <span style="display:flex;align-items:center;gap:6px">
+                    <svg width="16" height="16" viewBox="0 0 24 24">
+                    <path d="M5 13l4 4L19 7" stroke="currentColor" stroke-width="2"/>
+                    </svg>
+                    Suggested addresses selected successfully.
+                    </span><br>
+                    Enter Product Name:
+                    """
+                }
+
+            return {"response": "Unable to auto match addresses. Please select manually."}
+        
+        # ================= MANUAL ADDRESS =================
+        if user_message == "manual_address":
+
+            warehouses = get_all_warehouses()
+
+            if not warehouses:
+                return {"response": "No warehouse found."}
+
+            conversation_state["available_warehouses"] = warehouses
+
+            options = [
+                {"label": f"{w.get('addressName')} ({w.get('city')})", "value": str(i+1)}
+                for i, w in enumerate(warehouses)
+            ]
+
+            return {
+                "response": f"{WAREHOUSE_ICON} Please select a warehouse:",
+                "options": options
+            }
         # ================= START FRESH =================
         if user_message == "fresh":
 
@@ -667,7 +910,7 @@ def handle_chat(user_message):
             ]
 
             return {
-                "response": "Sure! Let's create a new shipment. 🏬 Please select a warehouse:",
+                "response": f"Sure! Let's create a new shipment.<br>{WAREHOUSE_ICON} Please select a warehouse:",
                 "options": options
             }
             
@@ -688,13 +931,30 @@ def handle_chat(user_message):
             conversation_state["available_shipto"] = shipto
 
             options = [
-                {"label": f"Address: {s.get('addressName')} ({s.get('postalCode')}, {s.get('state')}), {s.get('country')} \nCity: {s.get('city')}, \nPhone: {s.get('phone')}", "value": str(i+1)}
-                for i, s in enumerate(shipto)
+            {
+            "label": f"""
+            <span style="display:flex;flex-direction:column">
+            <span>{HOME_ICON} {s.get('addressName')}</span>
+            <span>{s.get('city')} ({s.get('postalCode')}, {s.get('state')})</span>
+            <span>Phone: {s.get('phone')}</span>
+            </span>
+            """,
+            "value": str(i+1)
+            }
+            for i, s in enumerate(shipto)
             ]
 
-            options.append({"label": "➕ Add New Address", "value": "add_new"})
+            options.append({
+            "label": f"""
+            <span style="display:flex;align-items:center;gap:6px">
+            {PLUS_ICON}
+            Add New Address
+            </span>
+            """,
+            "value": "add_new"
+            })
 
-            return {"response": "🏠 Select ShipTo Address:", "options": options}
+            return {"response": f"{HOME_ICON} Select ShipTo Address:", "options": options}
 
         # ================= NEW ADDRESS FLOW =================
         if conversation_state["new_address_mode"]:
@@ -819,6 +1079,31 @@ def handle_chat(user_message):
 
             conversation_state["available_services"] = result.get("data",{}).get("servicesOnDate",[])
             return format_quote(result)
+        
+        # ================= MANUAL SERVICE =================
+        if user_message == "manual_service":
+
+            services = conversation_state["available_services"]
+
+            options = []
+
+            for i, s in enumerate(services, 1):
+
+                label = (
+                    f"{s.get('carrierCode')} - {s.get('serviceDescription')}\n"
+                    f"₹ {s.get('totalCharges')} | "
+                    f"{s.get('businessDaysInTransit')} days"
+                )
+
+                options.append({
+                    "label": label,
+                    "value": str(i)
+                })
+
+            return {
+                "response": "Choose courier service:",
+                "options": options
+            }
 
         # ================= SERVICE SELECTION =================
         if conversation_state["available_services"] and not conversation_state["carrierId"] and user_message.isdigit():
@@ -847,12 +1132,32 @@ def handle_chat(user_message):
             conversation_state["awaiting_confirmation"] = True
 
             return {
-                "response": "✅ Confirm shipment?",
+                "response": "<b>Confirm shipment?</b>",
                 "options": [
-                {"label": "✅ Yes, Create Shipment", "value": "yes"},
-                {"label": "❌ Cancel Shipment", "value": "no"}
-            ]
-        }
+                    {
+                        "label": """
+                        <span style="display:flex;align-items:center;gap:6px">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                        <path d="M5 13l4 4L19 7" stroke="currentColor" stroke-width="2"/>
+                        </svg>
+                        Yes, Create Shipment
+                        </span>
+                        """,
+                        "value": "yes"
+                    },
+                    {
+                        "label": """
+                        <span style="display:flex;align-items:center;gap:6px">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                        <path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2"/>
+                        </svg>
+                        Cancel Shipment
+                        </span>
+                        """,
+                        "value": "no"
+                    }
+                ]
+            }
 
         # ================= CONFIRMATION =================
         if conversation_state["awaiting_confirmation"]:
@@ -1057,33 +1362,6 @@ Do not be repetitive.
 Do not hallucinate.
 Stay in logistics domain.
 """
-        # ========= PROGRESSIVE QUOTE FLOW =========
-
-        required_fields = ["from_pincode", "to_pincode", "weight", "length", "width", "height"]
-
-        if all(conversation_state.get(f) for f in required_fields):
-
-            missing = [f for f in required_fields if not conversation_state.get(f)]
-
-            if missing:
-                return {"response": f"Please provide: {', '.join(missing)}"}
-
-            # Only call quote when ALL fields exist
-            if all(conversation_state.get(f) for f in required_fields):
-
-                # All fields present → call API directly
-                result = get_quote(
-                    conversation_state["from_pincode"],
-                    conversation_state["to_pincode"],
-                    conversation_state["weight"],
-                    conversation_state["length"],
-                    conversation_state["width"],
-                    conversation_state["height"]
-                )
-
-                response = format_quote(result)   # format FIRST
-                reset_state()                     # reset AFTER formatting
-                return response
 
         response = client.chat.completions.create(
             model="llama-3.1-8b-instant",
@@ -1125,7 +1403,7 @@ Stay in logistics domain.
                     }
                 }
             ],
-            tool_choice="auto"
+            tool_choice="auto",
         )
 
         message = response.choices[0].message
@@ -1183,46 +1461,29 @@ Stay in logistics domain.
     except Exception:
         return {"response": "Unable to process your request right now. Please try again."}
 
+def select_best_courier(services):
 
-#shipment details extraction and validation
+    if not services:
+        return None
 
-def get_missing_shipment_fields():
-    required = [
-        "product",
-        "quantity",
-        "invoice_amount",
-        "noOfBoxes"
-    ]
-    return [f.replace("_", " ") for f in required if not conversation_state.get(f)]
+    def safe_price(service):
+        try:
+            return float(service.get("totalCharges", 999999))
+        except:
+            return 999999
 
+    def safe_days(service):
+        try:
+            return int(service.get("businessDaysInTransit", 999))
+        except:
+            return 999
 
-def extract_shipment_details(message):
+    sorted_services = sorted(
+        services,
+        key=lambda s: (safe_price(s), safe_days(s))
+    )
 
-    msg = message.strip()
-
-    if not conversation_state["product"]:
-        conversation_state["product"] = msg
-        return
-
-    if not conversation_state["quantity"]:
-        qty = re.sub(r"\D", "", msg)
-        if qty:
-            conversation_state["quantity"] = qty
-            return
-
-    if not conversation_state["invoice_amount"]:
-        amount = re.sub(r"[^\d.]", "", msg)
-        if amount:
-            conversation_state["invoice_amount"] = amount
-            return
-
-    if not conversation_state["noOfBoxes"]:
-        boxes = re.sub(r"\D", "", msg)
-        if boxes:
-            conversation_state["noOfBoxes"] = boxes
-            return
-
-
+    return sorted_services[0]
 #formatter functions for quote, shipment and tracking results
 
 def format_quote(result):
@@ -1235,26 +1496,42 @@ def format_quote(result):
     if not services:
         return {"response": "No courier services available."}
 
-    conversation_state["available_services"] = services
+    conversation_state.update({
+        "available_services": services
+    })
 
     msg = (
-        f"📍 From: {result['from_details']['city']} ({result['from_details']['state']}), {result['from_details']['country']}\n"
-        f"📍 To: {result['to_details']['city']} ({result['to_details']['state']}), {result['to_details']['country']}\n\n"
-        f"⚖️ Weight: {conversation_state['weight']} kg\n"
-        f"📏 Dimensions: {conversation_state['length']} x "
-        f"{conversation_state['width']} x {conversation_state['height']} cm\n\n"
-        "📦 Available Shipping Options:\n\n"
+        f"{LOCATION_ICON} From: {result['from_details']['city']} "
+        f"({result['from_details']['state']}), {result['from_details']['country']}<br>"
+
+        f"{LOCATION_ICON} To: {result['to_details']['city']} "
+        f"({result['to_details']['state']}), {result['to_details']['country']}<br><br>"
+
+        f"{WEIGHT_ICON} Weight: {conversation_state['weight']} kg<br>"
+
+        f"{DIM_ICON} Dimensions: {conversation_state['length']} x "
+        f"{conversation_state['width']} x {conversation_state['height']} cm<br><br>"
+
+        f"{BOX_ICON} Available Shipping Options:<br><br>"
     )
 
     options = []
 
     for i, s in enumerate(services, 1):
-        label = (
-            f"• {s.get('carrierCode')} - {s.get('serviceDescription')}\n"
-            f"💰 ₹ {s.get('totalCharges')}\n"
-            f"📅 {s.get('arrivalDate')} "
-            f"({s.get('businessDaysInTransit')} days)"
-        )
+        label = f"""
+        <div class="service-card">
+
+        <div class="service-title">
+        {s.get('carrierCode')} - {s.get('serviceDescription')}
+        </div>
+
+        <div class="service-row">
+        <span>{MONEY_ICON} ₹ {s.get('totalCharges')}</span>
+        <span>{CALENDAR_ICON} {s.get('businessDaysInTransit')} days</span>
+        </div>
+
+        </div>
+        """
         options.append({
             "label": label,
             "value": str(i)
@@ -1287,15 +1564,29 @@ def format_shipment(result):
         or "Not Available"
     )
 
-    # Photon API does NOT return AWB separately
-    awb = data.get("awbNumber") or tracking
-
     return {
         "response":
-            "✅ Shipment Created Successfully!\n\n"
-            f"🚚 Courier: {carrier}\n"
-            f"📦 Tracking Number: {tracking}\n"
-            f"🧾 AWB: {awb}"
+            """
+<b>Shipment Created Successfully!</b><br><br>
+
+<span style="display:flex;align-items:center;gap:6px;">
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+<rect x="1" y="3" width="15" height="13" stroke="currentColor" stroke-width="2"/>
+<polygon points="16,8 20,8 23,11 23,16 16,16" stroke="currentColor" stroke-width="2"/>
+<circle cx="5.5" cy="18.5" r="2.5" stroke="currentColor" stroke-width="2"/>
+<circle cx="18.5" cy="18.5" r="2.5" stroke="currentColor" stroke-width="2"/>
+</svg>
+Courier: """ + carrier + """
+</span>
+
+<span style="display:flex;align-items:center;gap:6px;margin-top:4px;">
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+<path d="M3 7l9-4 9 4-9 4-9-4z" stroke="currentColor" stroke-width="2"/>
+<path d="M3 7v10l9 4 9-4V7" stroke="currentColor" stroke-width="2"/>
+</svg>
+Tracking Number: """ + tracking + """
+</span>
+"""
     }
 
 
@@ -1306,9 +1597,9 @@ def format_tracking(result):
 
     data = result.get("data", {})
 
-    return {
-        "response":
-            "🚚 Tracking Status\n\n"
-            f"Status: {data.get('currentStatus')}\n"
-            f"Location: {data.get('currentLocation')}"
-    }
+    response = (
+        f"{TRUCK_ICON} <b>Tracking Status</b><br><br>"
+        f"Status: {data.get('currentStatus')}<br>"
+        f"Location: {data.get('currentLocation')}"
+    )
+    return {"response": response}

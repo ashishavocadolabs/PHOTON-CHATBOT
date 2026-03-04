@@ -49,6 +49,11 @@ body {
     overflow: visible;
 }
 
+.chat-button svg{
+    width:22px;
+    height:22px;
+    stroke:white;
+}
 /* ===== AI ENERGY RING SYSTEM ===== */
 
 .chat-button.voice-active::before,
@@ -321,24 +326,28 @@ body {
 
 /* Bot Message */
 .bot {
-    background: #f4f6f8;
-    color: #1f2d2d;
 
-    padding: 12px 16px;
+    background:#ffffff;
 
-    border-radius: 18px 18px 18px 4px;
+    color:#1f2d2d;
 
-    margin-bottom: 12px;
+    padding:12px 16px;
 
-    font-size: 14px;
+    border-radius:18px 18px 18px 4px;
 
-    max-width: 75%;
+    margin-bottom:12px;
 
-    box-shadow: 0 4px 10px rgba(0,0,0,0.06);
+    font-size:14px;
 
-    position: relative;
+    max-width:75%;
 
-    animation: fadeIn 0.25s ease;
+    border:1px solid #e4e6eb;
+
+    box-shadow:0 3px 10px rgba(0,0,0,0.08);
+
+    position:relative;
+
+    z-index:5;
 }
 
 .bot::before{
@@ -352,15 +361,18 @@ body {
 
     border-top:6px solid transparent;
     border-bottom:6px solid transparent;
-    border-right:6px solid #eef1f4;
+    border-right:6px solid #ffffff;
 }
 
 /* User Message */
 .user {
+
     background:#2f6f6f;
+
     color:white;
 
     padding:10px 14px;
+
     border-radius:18px 18px 4px 18px;
 
     margin-left:auto;
@@ -373,9 +385,10 @@ body {
 
     word-wrap:break-word;
 
-    box-shadow:0 3px 8px rgba(0,0,0,0.15);
+    box-shadow:0 4px 10px rgba(0,0,0,0.2);
 
-    animation:fadeIn 0.25s ease;
+    position:relative;
+    z-index:5;   /* IMPORTANT */
 }
 
 @keyframes fadeIn {
@@ -514,35 +527,37 @@ body {
 /* === Compact Popup Option Cards === */
 
 .option-btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 6px;
 
-    width: 48%;                /* 2 per row */
-    margin: 6px 1%;
-    padding: 10px 12px;
+    display:flex;
+    flex-direction:column;
+    align-items:flex-start;
 
-    border-radius: 14px;
-    border: 1px solid rgba(47,111,111,0.4);
+    width:48%;
+    margin:6px 1%;
 
-    background: linear-gradient(
-        135deg,
-        rgba(47,111,111,0.15),
-        rgba(47,111,111,0.05)
-    );
+    padding:12px;
 
-    color: #1f4e4e;
-    font-size: 13px;
-    font-weight: 500;
-    cursor: pointer;
+    border-radius:14px;
+    border:1.5px solid #2f6f6f;
 
-    transition: all 0.25s ease;
-    backdrop-filter: blur(6px);
+    background: #e8f2f2;
 
-    box-shadow: 0 6px 14px rgba(0,0,0,0.08);
+    font-size:13px;
+
+    cursor:pointer;
+
+    transition:all 0.25s ease;
+
+    box-shadow:0 3px 8px rgba(0,0,0,0.08);
+
+    position: relative;
+    z-index: 10;
 }
 
+.option-btn svg{
+    width:16px;
+    height:16px;
+}
 /* Hover */
 .option-btn:hover {
     transform: translateY(-3px);
@@ -558,10 +573,6 @@ body {
 /* Click */
 .option-btn:active {
     transform: scale(0.95);
-}
-
-.user {
-    margin-bottom:14px;   /* more breathing space */
 }
 
 .bot-row {
@@ -786,15 +797,48 @@ body {
     gap:4px;
     box-shadow:0 1px 3px rgba(0,0,0,0.1);
 }
+
+svg{
+    width:16px;
+    height:16px;
+    stroke:currentColor;
+    stroke-width:2;
+    fill:none;
+}
+
+.service-card{
+    width:100%;
+    text-align:left;
+}
+
+.service-title{
+    font-weight:600;
+    font-size:13px;
+    margin-bottom:6px;
+    word-break:break-word;
+}
+
+.service-row{
+    display:flex;
+    justify-content:space-between;
+    font-size:12px;
+}
 </style>
 </head>
 
 <body>
 <div class="chat-hi-bubble" id="chatHi">
-    Hi 👋
+    Hi
 </div>
 
-<div class="chat-button" id="chatBtn" onclick="toggleChat()">💬</div>
+<div class="chat-button" id="chatBtn" onclick="toggleChat()">
+
+<svg viewBox="0 0 24 24" fill="none">
+<path d="M21 15a4 4 0 0 1-4 4H7l-4 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z"
+stroke="currentColor" stroke-width="2"/>
+</svg>
+
+</div>
 
 <div class="chat-box" id="chatBox">
 
@@ -811,9 +855,21 @@ body {
 
         <!-- EXISTING CONTENT (UNCHANGED) -->
         <div class="logo-area">
-            <div class="box-icon" id="boxIcon">📦</div>
-            <div class="hi-text" id="hiText">Hi 👋 Welcome to Photon AI</div>
-            <div class="truck-icon" id="truckIcon">🚚</div>
+            <div class="box-icon" id="boxIcon">
+            <svg viewBox="0 0 24 24">
+            <path d="M3 7l9-4 9 4-9 4-9-4z"/>
+            <path d="M3 7v10l9 4 9-4V7"/>
+            </svg>
+            </div>
+            <div class="hi-text" id="hiText">Welcome to Photon AI</div>
+            <div class="truck-icon" id="truckIcon">
+            <svg viewBox="0 0 24 24">
+            <rect x="1" y="3" width="15" height="13"></rect>
+            <polygon points="16,8 20,8 23,11 23,16 16,16"></polygon>
+            <circle cx="5.5" cy="18.5" r="2.5"></circle>
+            <circle cx="18.5" cy="18.5" r="2.5"></circle>
+            </svg>
+            </div>
         </div>
 
         <!-- RIGHT CLOSE ICON -->
@@ -835,22 +891,42 @@ body {
             <div class="bot-content">
 
                 <div class="bot">
-                    Hello 👋 {name}! I am your AI Logistics Assistant.
+                    Hello {name}! I am your AI Logistics Assistant.
                     Speak English. Say "Hey Photon" to activate voice.
                 </div>
 
                 <div class="options-wrapper">
 
-                    <button class="option-btn" onclick="sendOption('create shipment','📦 Create Shipment')">
-                        📦 Create Shipment
+                    <button class="option-btn" onclick="sendOption('create shipment','Create Shipment')">
+
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                    <path d="M3 7l9-4 9 4-9 4-9-4z" stroke="currentColor" stroke-width="2"/>
+                    <path d="M3 7v10l9 4 9-4V7" stroke="currentColor" stroke-width="2"/>
+                    </svg>
+
+                    Create Shipment
                     </button>
 
-                    <button class="option-btn" onclick="sendOption('quote','💰 Get Quote')">
-                        💰 Get Quote
+                    <button class="option-btn" onclick="sendOption('quote','Get Quote')">
+
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                    <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/>
+                    <path d="M8 12h8M12 8v8" stroke="currentColor" stroke-width="2"/>
+                    </svg>
+
+                    Get Quote
                     </button>
 
-                    <button class="option-btn" onclick="sendOption('tracking','🚚 Track Shipment')">
-                        🚚 Track Shipment
+                    <button class="option-btn" onclick="sendOption('tracking','Track Shipment')">
+
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                    <rect x="1" y="3" width="15" height="13" stroke="currentColor" stroke-width="2"/>
+                    <polygon points="16,8 20,8 23,11 23,16 16,16" stroke="currentColor" stroke-width="2"/>
+                    <circle cx="5.5" cy="18.5" r="2.5" stroke="currentColor" stroke-width="2"/>
+                    <circle cx="18.5" cy="18.5" r="2.5" stroke="currentColor" stroke-width="2"/>
+                    </svg>
+
+                    Track Shipment
                     </button>
 
                 </div>
@@ -862,15 +938,28 @@ body {
 
     <div class="chat-input">
     <button class="tooltip" onclick="toggleVoice()">
-        🎙
-        <span class="tooltip-text">Mic</span>
+
+    <svg viewBox="0 0 24 24">
+    <rect x="9" y="2" width="6" height="12" rx="3"></rect>
+    <path d="M5 10v2a7 7 0 0 0 14 0v-2"></path>
+    <line x1="12" y1="19" x2="12" y2="22"></line>
+    </svg>
+
+    <span class="tooltip-text">Mic</span>
+
     </button>
         <input type="text" id="messageInput"
         placeholder="Ask about quote or shipment..."
         onkeydown="if(event.key==='Enter'){sendMessage();}">
         <button class="tooltip" onclick="sendMessage()">
-            ➤
-            <span class="tooltip-text">Send</span>
+
+        <svg viewBox="0 0 24 24">
+        <line x1="22" y1="2" x2="11" y2="13"></line>
+        <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+        </svg>
+
+        <span class="tooltip-text">Send</span>
+
         </button>
     </div>
 
@@ -914,8 +1003,14 @@ function toggleChat() {
     }
 }
 
+let headerLoop = null;
 /* HEADER LOOP ANIMATION (unchanged) */
 function startHeaderLoop(){
+
+    if(headerLoop){
+        clearInterval(headerLoop);
+    }
+
     const box = document.getElementById("boxIcon");
     const hi = document.getElementById("hiText");
     const truck = document.getElementById("truckIcon");
@@ -942,7 +1037,7 @@ function startHeaderLoop(){
     }
 
     run();
-    setInterval(run,6000);
+    headerLoop = setInterval(run,6000);
 }
 startHeaderLoop();
 
@@ -984,7 +1079,10 @@ async function sendMessage() {
     let messagesDiv = document.getElementById("messages");
 
     // Show user message
-    messagesDiv.innerHTML += `<div class="user">${message}</div>`;
+    let userDiv = document.createElement("div");
+    userDiv.className = "user";
+    userDiv.innerText = message;
+    messagesDiv.appendChild(userDiv);
     input.value = "";
 
     // Show sending bubble
@@ -1024,44 +1122,6 @@ function renderBotResponse(data) {
 
     let messagesDiv = document.getElementById("messages");
 
-    // 🔥 STEP 2: HANDLE EDIT FORM
-    if (data.type === "edit_form") {
-
-        let formDiv = document.createElement("div");
-        formDiv.className = "bot";
-
-        let formHTML = `<h4>📝 ${data.title}</h4>`;
-
-        data.fields.forEach(field => {
-            formHTML += `
-                <div style="margin-bottom:8px;">
-                    <label style="font-size:12px;">${field.label}</label><br>
-                    <input 
-                        type="${field.type}" 
-                        id="form_${field.name}" 
-                        value="${field.value || ''}"
-                        style="width:100%; padding:6px; border-radius:6px; border:1px solid #ccc;"
-                    />
-                </div>
-            `;
-        });
-
-        formHTML += `
-            <button 
-                style="margin-top:10px; padding:8px 12px; background:#2f6f6f; color:white; border:none; border-radius:8px; cursor:pointer;"
-                onclick="submitModifyForm()"
-            >
-                💾 Save & Continue
-            </button>
-        `;
-
-        formDiv.innerHTML = formHTML;
-        messagesDiv.appendChild(formDiv);
-        messagesDiv.scrollTop = messagesDiv.scrollHeight;
-
-        return; // ⛔ STOP normal rendering
-    }
-
     // Create row container
     let row = document.createElement("div");
     row.className = "bot-row";
@@ -1076,7 +1136,7 @@ function renderBotResponse(data) {
     // Message bubble
     let botDiv = document.createElement("div");
     botDiv.className = "bot";
-    botDiv.innerText = data.response || "Something went wrong.";
+    botDiv.innerHTML = data.response || "Something went wrong.";
 
     content.appendChild(botDiv);
 
@@ -1091,7 +1151,7 @@ function renderBotResponse(data) {
 
             let btn = document.createElement("button");
             btn.className = "option-btn";
-            btn.innerText = option.label;
+            btn.innerHTML = option.label;
 
             btn.onclick = function () {
                 sendOption(option.value, option.label);
@@ -1178,7 +1238,9 @@ function startVoice(){
     recognition.lang="en-US";
     recognition.continuous=true;
     recognition.interimResults=false;
-    recognition.start();
+    if(listening){
+        recognition.start();
+    }
 
     listening=true;
     document.getElementById("chatBtn").classList.add("listening");
@@ -1264,21 +1326,42 @@ async function resetChat(element){
         <div class="bot-content">
 
             <div class="bot">
-                Hello 👋 ${USER_NAME}! I am your AI Logistics Assistant.
+                Hello ${USER_NAME}! I am your AI Logistics Assistant.
+                Speak English. Say "Hey Photon" to activate voice.
             </div>
 
             <div class="options-wrapper">
 
-                <button class="option-btn" onclick="sendOption('create shipment','📦 Create Shipment')">
-                    📦 Create Shipment
+                <button class="option-btn" onclick="sendOption('create shipment','Create Shipment')">
+
+                <svg viewBox="0 0 24 24">
+                <path d="M3 7l9-4 9 4-9 4-9-4z"/>
+                <path d="M3 7v10l9 4 9-4V7"/>
+                </svg>
+
+                Create Shipment
                 </button>
 
-                <button class="option-btn" onclick="sendOption('quote','💰 Get Quote')">
-                    💰 Get Quote
+                <button class="option-btn" onclick="sendOption('quote','Get Quote')">
+
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/>
+                <path d="M8 12h8M12 8v8" stroke="currentColor" stroke-width="2"/>
+                </svg>
+
+                Get Quote
                 </button>
 
-                <button class="option-btn" onclick="sendOption('tracking','🚚 Track Shipment')">
-                    🚚 Track Shipment
+                <button class="option-btn" onclick="sendOption('tracking','Track Shipment')">
+
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                <rect x="1" y="3" width="15" height="13" stroke="currentColor" stroke-width="2"/>
+                <polygon points="16,8 20,8 23,11 23,16 16,16" stroke="currentColor" stroke-width="2"/>
+                <circle cx="5.5" cy="18.5" r="2.5" stroke="currentColor" stroke-width="2"/>
+                <circle cx="18.5" cy="18.5" r="2.5" stroke="currentColor" stroke-width="2"/>
+                </svg>
+
+                Track Shipment
                 </button>
 
             </div>
@@ -1290,6 +1373,8 @@ async function resetChat(element){
 
     // backend reset
     await fetch("/reset", { method: "POST" });
+
+    startHeaderLoop();
 
     setTimeout(()=>{ resetInProgress = false; }, 800);
 }
@@ -1316,32 +1401,6 @@ function startHiBubble() {
 }
 
 startHiBubble();
-
-/* Modify Form Submission */
-async function submitModifyForm() {
-
-    let inputs = document.querySelectorAll("[id^='form_']");
-    let formData = {};
-
-    inputs.forEach(input => {
-        let key = input.id.replace("form_", "");
-        formData[key] = input.value;
-    });
-
-    showTyping();
-
-    let response = await fetch("/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-            message: "submit_modify_form:" + JSON.stringify(formData)
-        })
-    });
-
-    let data = await response.json();
-    removeTyping();
-    renderBotResponse(data);
-}
 </script>
 
 </body>
