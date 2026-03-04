@@ -244,8 +244,13 @@ def handle_chat(user_message):
         if msg in ["hi", "hello", "hey", "hii"]:
             reset_state()
             return {
-                "response": f"Hi {user_name} 👋\nI can help you with shipping quotes and shipment tracking."
-            }
+                "response": f"Hi {user_name} 👋\nWhat would you like to do today?",
+                "options": [
+                {"label": "📦 Create Shipment", "value": "create shipment"},
+                {"label": "💰 Get Quote", "value": "quote"},
+                {"label": "🚚 Track Shipment", "value": "tracking"}
+            ]
+        }
 
         # ================= TRACKING FLOW =================
         if intent == "tracking":
@@ -840,7 +845,14 @@ def handle_chat(user_message):
             conversation_state["carrierType"] = selected.get("carrierType")
 
             conversation_state["awaiting_confirmation"] = True
-            return {"response": "Confirm shipment? (yes / no)"}
+
+            return {
+                "response": "✅ Confirm shipment?",
+                "options": [
+                {"label": "✅ Yes, Create Shipment", "value": "yes"},
+                {"label": "❌ Cancel Shipment", "value": "no"}
+            ]
+        }
 
         # ================= CONFIRMATION =================
         if conversation_state["awaiting_confirmation"]:

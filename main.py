@@ -25,7 +25,8 @@ def home():
 <style>
 body {
     margin:0;
-    font-family: 'Segoe UI', sans-serif;
+    font-family: 'Inter', 'Segoe UI', sans-serif;
+    font-size:15px;
 }
 
 /* Floating Button */
@@ -140,7 +141,7 @@ body {
     position: fixed;
     bottom: 90px;
     right: 20px;
-    width: 360px;
+    width: 380px;
     height: 520px;
     background: #ffffff;
     border-radius: 16px;
@@ -186,11 +187,11 @@ body {
 
 .chat-messages::before {
     content:"";
-    position:fixed;     /*  change from fixed to absolute */
+    position:fixed;   /* FIX */
     inset:0;
     background: url('/static/photon-img.jpg') center center no-repeat;
-    background-size: 300px;
-    opacity: 0.12;
+    background-size: 280px;
+    opacity: 0.05;       /* softer */
     pointer-events:none;
     z-index:0;
 }
@@ -220,37 +221,27 @@ body {
 /* ===== PREMIUM HEADER ICON ===== */
 
 .header-icon {
-    width: 36px;
-    height: 36px;
+    width: 26px;
+    height: 26px;
     display:flex;
     align-items:center;
     justify-content:center;
     cursor:pointer;
-    border-radius:50%;
-    transition: all 0.3s ease;
-    background: rgba(255,255,255,0.12);
-    backdrop-filter: blur(6px);
-    box-shadow:
-        inset 0 0 5px rgba(255,255,255,0.2),
-        0 2px 6px rgba(0,0,0,0.25);
+    transition: transform 0.2s ease;
 }
 
+/* icon size */
 .header-icon svg {
     width:18px;
     height:18px;
     stroke:white;
     stroke-width:2;
     fill:none;
-    transition: transform 0.4s ease, stroke 0.3s ease;
 }
 
-/*  Hover Neon Effect */
+/* hover */
 .header-icon:hover {
-    background: rgba(0,242,254,0.2);
-    box-shadow:
-        0 0 8px #00f2fe,
-        0 0 15px #00f2fe,
-        inset 0 0 6px rgba(255,255,255,0.3);
+    transform: scale(1.1);
 }
 
 .header-icon:hover svg {
@@ -284,34 +275,107 @@ body {
     }
 }
 
+/* Bot Row Layout */
+.bot-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    margin-bottom: 14px;
+}
+
+/* Avatar */
+.bot-avatar {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    background: url('/static/photon-img.jpg') center/cover no-repeat;
+    border: 2px solid #2f6f6f;
+    flex-shrink: 0;
+    margin-top: 2px;
+}
+
+/* AI thinking avatar animation */
+.bot-avatar.thinking{
+    animation: aiPulse 1.4s ease-in-out infinite;
+}
+
+@keyframes aiPulse{
+    0%{
+        transform:scale(1);
+        box-shadow:0 0 0 rgba(47,111,111,0);
+    }
+    50%{
+        transform:scale(1.08);
+        box-shadow:0 0 12px rgba(47,111,111,0.5);
+    }
+    100%{
+        transform:scale(1);
+        box-shadow:0 0 0 rgba(47,111,111,0);
+    }
+}
+
+.bot-content {
+    display: flex;
+    flex-direction: column;
+}
+
 /* Bot Message */
 .bot {
-    background: #ffffff;
-    border: 1px solid #2f6f6f;
+    background: #f4f6f8;
     color: #1f2d2d;
+
     padding: 12px 16px;
-    border-radius: 14px;
+
+    border-radius: 18px 18px 18px 4px;
+
     margin-bottom: 12px;
+
     font-size: 14px;
-    max-width: 85%;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+
+    max-width: 75%;
+
+    box-shadow: 0 4px 10px rgba(0,0,0,0.06);
+
     position: relative;
-    z-index: 2;
+
+    animation: fadeIn 0.25s ease;
 }
+
+.bot::before{
+    content:"";
+    position:absolute;
+    left:-6px;
+    top:14px;
+
+    width:0;
+    height:0;
+
+    border-top:6px solid transparent;
+    border-bottom:6px solid transparent;
+    border-right:6px solid #eef1f4;
+}
+
 /* User Message */
 .user {
-    background:#5fa8a8;           /* Photon normal color background */
-    color:#000000;                /* Black text */
-    border:1px solid #2f6f6f;     /* Photon border */
+    background:#2f6f6f;
+    color:white;
+
     padding:10px 14px;
-    border-radius:12px;
-    margin-bottom:10px;
+    border-radius:18px 18px 4px 18px;
+
     margin-left:auto;
+    margin-bottom:12px;
+
     font-size:14px;
-    max-width:80%;
-    position:relative;
-    z-index:2;
-    box-shadow:0 2px 6px rgba(0,0,0,0.08);
+
+    max-width:65%;
+    width:fit-content;
+
+    word-wrap:break-word;
+
+    box-shadow:0 3px 8px rgba(0,0,0,0.15);
+
+    animation:fadeIn 0.25s ease;
 }
 
 @keyframes fadeIn {
@@ -322,9 +386,9 @@ body {
 
 /* Typing */
 .typing span {
-    height:8px;
-    width:8px;
-    background:#00f2fe;
+    height:6px;
+    width:6px;
+    background:#555;
     border-radius:50%;
     display:inline-block;
     margin:0 2px;
@@ -332,6 +396,7 @@ body {
 }
 .typing span:nth-child(2){animation-delay:0.2s;}
 .typing span:nth-child(3){animation-delay:0.4s;}
+
 
 @keyframes bounce {
     0%,80%,100% { transform:scale(0);}
@@ -341,24 +406,33 @@ body {
 /* Sending Bubble */
 
 .sending {
-    background:#2f6f6f;      /* Photon main color */
-    color:#ffffff;
-    padding:10px 14px;
-    border-radius:12px;
-    margin-bottom:10px;
+    background:#2f6f6f;
+    color:white;
+
+    padding:8px 12px;
+
+    border-radius:18px 18px 4px 18px;
+
     margin-left:auto;
-    font-size:14px;
-    max-width:80%;
+    margin-bottom:12px;
+
+    font-size:13px;
+
+    width:fit-content;
+
     display:flex;
     align-items:center;
     gap:6px;
-    box-shadow:0 2px 6px rgba(0,0,0,0.15);
+
+    box-shadow:0 3px 8px rgba(0,0,0,0.15);
+
+    animation:fadeIn 0.2s ease;
 }
 /* Animated dots */
 .sending span {
     width:6px;
     height:6px;
-    background:black;
+    background:white;
     border-radius:50%;
     display:inline-block;
     animation: sendBounce 1.2s infinite;
@@ -437,40 +511,62 @@ body {
 }
 
 /* Options */
+/* === Compact Popup Option Cards === */
+
 .option-btn {
-    display:block;
-    width:100%;
-    text-align:left;
-    margin-top:8px;
-    padding:10px 12px;
-    border-radius:10px;
-    border:1px solid #2f6f6f;
-    background:#ffffff;     /* solid white */
-    color:#1f4e4e;
-    cursor:pointer;
-    font-size:13px;
-    position:relative;
-    z-index:2;               /* above watermark */
-    box-shadow:0 2px 6px rgba(0,0,0,0.08);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+
+    width: 48%;                /* 2 per row */
+    margin: 6px 1%;
+    padding: 10px 12px;
+
+    border-radius: 14px;
+    border: 1px solid rgba(47,111,111,0.4);
+
+    background: linear-gradient(
+        135deg,
+        rgba(47,111,111,0.15),
+        rgba(47,111,111,0.05)
+    );
+
+    color: #1f4e4e;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+
+    transition: all 0.25s ease;
+    backdrop-filter: blur(6px);
+
+    box-shadow: 0 6px 14px rgba(0,0,0,0.08);
 }
 
+/* Hover */
 .option-btn:hover {
-    background:#2f6f6f;
-    color:#ffffff;
+    transform: translateY(-3px);
+    background: linear-gradient(
+        135deg,
+        #2f6f6f,
+        #1f4e4e
+    );
+    color: white;
+    box-shadow: 0 10px 20px rgba(0,0,0,0.18);
 }
 
-/* Typing Animation */
-.typing span {
-    height:6px;
-    width:6px;
-    background:#2f6f6f;
-    border-radius:50%;
-    display:inline-block;
-    margin:0 2px;
-    animation:bounce 1.4s infinite;
+/* Click */
+.option-btn:active {
+    transform: scale(0.95);
 }
-.typing span:nth-child(2){animation-delay:0.2s;}
-.typing span:nth-child(3){animation-delay:0.4s;}
+
+.user {
+    margin-bottom:14px;   /* more breathing space */
+}
+
+.bot-row {
+    margin-bottom:18px;   /* more gap between bot messages */
+}
 
 .chat-header {
     height: 50px;
@@ -667,6 +763,29 @@ body {
 .tooltip-text {
     z-index: 2;
 }
+
+.options-wrapper {
+    display: flex;
+    flex-wrap: wrap;
+    margin-top: 8px;
+}
+
+.bot-typing-row{
+    display:flex;
+    align-items:flex-end;
+    gap:10px;
+    margin-bottom:14px;
+}
+
+.bot-typing{
+    background:#e5e5ea;
+    padding:8px 14px;
+    border-radius:18px;
+    display:inline-flex;
+    align-items:center;
+    gap:4px;
+    box-shadow:0 1px 3px rgba(0,0,0,0.1);
+}
 </style>
 </head>
 
@@ -708,7 +827,37 @@ body {
     </div>
 
     <div class="chat-messages" id="messages">
-        <div class="bot">Hello 👋 {name}! I am your AI Logistics Assistant. Speak English. Say "Hey Photon" to activate voice. And How Can I assist you in Shipping, Quote and Tracking?</div>
+
+        <div class="bot-row">
+
+            <div class="bot-avatar"></div>
+
+            <div class="bot-content">
+
+                <div class="bot">
+                    Hello 👋 {name}! I am your AI Logistics Assistant.
+                    Speak English. Say "Hey Photon" to activate voice.
+                </div>
+
+                <div class="options-wrapper">
+
+                    <button class="option-btn" onclick="sendOption('create shipment','📦 Create Shipment')">
+                        📦 Create Shipment
+                    </button>
+
+                    <button class="option-btn" onclick="sendOption('quote','💰 Get Quote')">
+                        💰 Get Quote
+                    </button>
+
+                    <button class="option-btn" onclick="sendOption('tracking','🚚 Track Shipment')">
+                        🚚 Track Shipment
+                    </button>
+
+                </div>
+
+            </div>
+
+        </div>
     </div>
 
     <div class="chat-input">
@@ -799,19 +948,31 @@ startHeaderLoop();
 
 /* Typing Indicator */
 function showTyping(){
-    let messagesDiv = document.getElementById("messages");
-    let typingDiv = document.createElement("div");
-    typingDiv.className = "bot";
-    typingDiv.id = "typing";
-    typingDiv.innerHTML = `<div class="typing">
-        <span></span><span></span><span></span>
-    </div>`;
-    messagesDiv.appendChild(typingDiv);
-}
 
-function removeTyping(){
-    let typingDiv = document.getElementById("typing");
-    if(typingDiv) typingDiv.remove();
+    let messagesDiv = document.getElementById("messages");
+
+    let row = document.createElement("div");
+    row.className = "bot-typing-row";
+    row.id = "typing";
+
+    let avatar = document.createElement("div");
+    avatar.className = "bot-avatar thinking";
+
+    let typing = document.createElement("div");
+    typing.className = "bot-typing";
+
+    typing.innerHTML = `
+        <div class="typing">
+            <span></span><span></span><span></span>
+        </div>
+    `;
+
+    row.appendChild(avatar);
+    row.appendChild(typing);
+
+    messagesDiv.appendChild(row);
+
+    messagesDiv.scrollTop = messagesDiv.scrollHeight;
 }
 
 /* Send Message */
@@ -901,30 +1062,58 @@ function renderBotResponse(data) {
         return; // ⛔ STOP normal rendering
     }
 
-    // NORMAL RESPONSE FLOW
+    // Create row container
+    let row = document.createElement("div");
+    row.className = "bot-row";
+
+    // Avatar
+    let avatar = document.createElement("div");
+    avatar.className = "bot-avatar";
+
+    let content = document.createElement("div");
+    content.className = "bot-content";
+
+    // Message bubble
     let botDiv = document.createElement("div");
     botDiv.className = "bot";
     botDiv.innerText = data.response || "Something went wrong.";
-    messagesDiv.appendChild(botDiv);
 
+    content.appendChild(botDiv);
+
+    // Append
+    /* OPTIONS */
     if (data.options && data.options.length > 0) {
+
+        let wrapper = document.createElement("div");
+        wrapper.className = "options-wrapper";
+
         data.options.forEach(option => {
+
             let btn = document.createElement("button");
             btn.className = "option-btn";
             btn.innerText = option.label;
+
             btn.onclick = function () {
                 sendOption(option.value, option.label);
             };
-            messagesDiv.appendChild(btn);
+
+            wrapper.appendChild(btn);
         });
+
+        content.appendChild(wrapper);
     }
+
+    row.appendChild(avatar);
+    row.appendChild(content);
+
+    messagesDiv.appendChild(row);
 
     messagesDiv.scrollTop = messagesDiv.scrollHeight;
 }
 
 async function sendOption(value, label) {
     let messagesDiv = document.getElementById("messages");
-    messagesDiv.innerHTML += `<div class="user">✅ ${label}</div>`;
+    messagesDiv.innerHTML += `<div class="user">${label}</div>`;
     showTyping();
 
     let response = await fetch("/chat", {
@@ -936,6 +1125,22 @@ async function sendOption(value, label) {
     let data = await response.json();
     removeTyping();
     renderBotResponse(data);
+}
+
+function removeTyping(){
+
+    let typing = document.getElementById("typing");
+
+    if(typing){
+
+        let avatar = typing.querySelector(".bot-avatar");
+
+        if(avatar){
+            avatar.classList.remove("thinking");
+        }
+
+        typing.remove();
+    }
 }
 
 /* ================= VOICE SYSTEM ================= */
@@ -1052,9 +1257,35 @@ async function resetChat(element){
     // clear UI
     let messagesDiv = document.getElementById("messages");
     messagesDiv.innerHTML = `
-        <div class="bot">
-            Hello 👋 ${USER_NAME}! I am your AI Logistics Assistant.
+    <div class="bot-row">
+
+        <div class="bot-avatar"></div>
+
+        <div class="bot-content">
+
+            <div class="bot">
+                Hello 👋 ${USER_NAME}! I am your AI Logistics Assistant.
+            </div>
+
+            <div class="options-wrapper">
+
+                <button class="option-btn" onclick="sendOption('create shipment','📦 Create Shipment')">
+                    📦 Create Shipment
+                </button>
+
+                <button class="option-btn" onclick="sendOption('quote','💰 Get Quote')">
+                    💰 Get Quote
+                </button>
+
+                <button class="option-btn" onclick="sendOption('tracking','🚚 Track Shipment')">
+                    🚚 Track Shipment
+                </button>
+
+            </div>
+
         </div>
+
+    </div>
     `;
 
     // backend reset
