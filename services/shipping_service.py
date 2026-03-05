@@ -2,7 +2,7 @@ import requests
 import json
 from services.auth_service import get_headers, login, get_logged_user_id
 
-BASE_URL = "https://api.shipphoton.com"
+BASE_URL = "https://qaapi.shipphoton.com"
 DEBUG = True  # Turn OFF in production
 
 #debug logger

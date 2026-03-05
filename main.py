@@ -290,8 +290,8 @@ body {
 
 /* Avatar */
 .bot-avatar {
-    width: 34px;
-    height: 34px;
+    width: 30px;
+    height: 30px;
     border-radius: 50%;
     background: url('/static/photon-img.jpg') center/cover no-repeat;
     border: 2px solid #2f6f6f;
@@ -689,17 +689,51 @@ body {
 /* Hi bubble from chat button */
 .chat-hi-bubble {
     position: fixed;
-    bottom: 80px;
+    bottom: 85px;
     right: 20px;
-    background: #2f6f6f;
-    color: white;
-    padding: 4px 10px;
-    border-radius: 20px;
-    font-size: 13px;
-    opacity: 0;
-    transform: translateY(10px) scale(0.9);
-    transition: all 0.4s ease;
-    box-shadow: 0 8px 20px rgba(0,0,0,0.2);
+
+    display:flex;
+    align-items:center;
+    gap:8px;
+
+    background:#ffffff;
+    color:#1f2d2d;
+
+    padding:8px 12px;
+
+    border-radius:16px;
+
+    font-size:13px;
+
+    box-shadow:0 8px 25px rgba(0,0,0,0.18);
+
+    opacity:0;
+    transform:translateY(20px) scale(0.9);
+
+    transition:all 0.35s ease;
+
+    border:1px solid #e4e6eb;
+}
+
+/* Avatar */
+.chat-hi-avatar{
+    width:26px;
+    height:26px;
+    border-radius:50%;
+    background:url('/static/photon-img.jpg') center/cover no-repeat;
+    border:2px solid #2f6f6f;
+}
+
+/* arrow */
+.chat-hi-bubble::after{
+    content:"";
+    position:absolute;
+    bottom:-6px;
+    right:20px;
+
+    border-width:6px;
+    border-style:solid;
+    border-color:#ffffff transparent transparent transparent;
 }
 
 /* small tail */
@@ -836,7 +870,14 @@ svg{
 
 <body>
 <div class="chat-hi-bubble" id="chatHi">
-    Hi
+
+    <div class="chat-hi-avatar"></div>
+
+    <div>
+        <b>Photon AI</b><br>
+        Hi Ashish 👋
+    </div>
+
 </div>
 
 <div class="chat-button" id="chatBtn" onclick="toggleChat()">
@@ -899,8 +940,8 @@ stroke="currentColor" stroke-width="2"/>
             <div class="bot-content">
 
                 <div class="bot">
-                    Hello {name}! I am your AI Logistics Assistant.
-                    Speak English. Say "Hey Photon" to activate voice.
+                    Hello <b>{name}!</b> I am your <b>AI Logistics Assistant.</b>
+                    Speak English. Say <b>"Hey Photon"</b> to activate voice.
                 </div>
 
                 <div class="options-wrapper">
@@ -1336,8 +1377,8 @@ async function resetChat(element){
         <div class="bot-content">
 
             <div class="bot">
-                Hello ${USER_NAME}! I am your AI Logistics Assistant.
-                Speak English. Say "Hey Photon" to activate voice.
+                Hello <b>${USER_NAME}!</b> I am your <b>AI Logistics Assistant.</b>
+                Speak English. Say <b>"Hey Photon"</b> to activate voice.
             </div>
 
             <div class="options-wrapper">
@@ -1389,25 +1430,28 @@ async function resetChat(element){
     setTimeout(()=>{ resetInProgress = false; }, 800);
 }
 
-function startHiBubble() {
+function startHiBubble(){
 
     const bubble = document.getElementById("chatHi");
 
-    function animate() {
+    function animate(){
 
-        bubble.style.display = "block";
+        bubble.style.display="flex";
 
-        bubble.style.opacity = 1;
-        bubble.style.transform = "translateY(0) scale(1)";
+        setTimeout(()=>{
+            bubble.style.opacity=1;
+            bubble.style.transform="translateY(0) scale(1)";
+        },50);
 
-        setTimeout(() => {
-            bubble.style.opacity = 0;
-            bubble.style.transform = "translateY(10px) scale(0.9)";
-        }, 5000);
+        setTimeout(()=>{
+            bubble.style.opacity=0;
+            bubble.style.transform="translateY(15px) scale(0.9)";
+        },4500);
     }
 
     animate();
-    hiInterval = setInterval(animate, 8000);
+
+    hiInterval = setInterval(animate,8000);
 }
 
 startHiBubble();

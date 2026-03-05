@@ -375,7 +375,7 @@ def handle_chat(user_message):
         if intent == "tracking":
             reset_state()
             conversation_state["flow_mode"] = "tracking"
-            return {"response": "Sure! Please provide your tracking number."}
+            return {"response": "<b>Sure! Please provide your tracking number.</b>"}
 
         if conversation_state["flow_mode"] == "tracking":
             result = get_tracking(user_message)
@@ -399,12 +399,12 @@ def handle_chat(user_message):
             conversation_state["flow_mode"] = "quote"
             return {
                 "response":
-                "Sure! I can help you with shipping rates.\n\n"
-                "Please provide:\n"
-                "From Pincode\n"
-                "To Pincode\n"
-                "Weight (kg)\n"
-                "Dimensions (L W H)"
+                "Sure! I can help you with shipping rates.<br><br>"
+                "<b>Please provide:</b><br>"
+                "<b>From</b> Pincode<br>"
+                "<b>To</b> Pincode<br>"
+                "<b>Weight</b> (kg)<br>"
+                "<b>Dimensions</b> (L W H)"
             }
 
         if conversation_state["flow_mode"] == "quote":
@@ -436,7 +436,7 @@ def handle_chat(user_message):
                 missing_readable = [readable[m] for m in missing]
 
                 return {
-                    "response": "Please provide:\n" + "\n".join(missing_readable)
+                    "response": "<b>Please provide:</b>\n" + "\n".join(missing_readable)
                 }
 
                 #  All fields available → call API
@@ -457,7 +457,7 @@ def handle_chat(user_message):
         if intent == "shipping" and conversation_state["flow_mode"] is None:
             reset_state()
             conversation_state["flow_mode"] = "shipping"
-            # 🔥 SMART ADDRESS SUGGESTION
+            # SMART ADDRESS SUGGESTION
             suggestion = get_smart_address_suggestion()
 
             if suggestion:
@@ -467,9 +467,9 @@ def handle_chat(user_message):
                 return {
                     "response":
                     "Smart Address Suggestion\n\n"
-                    f"Most Used Ship From: {suggestion['from_city']}\n"
-                    f"Most Used Ship To: {suggestion['to_city']}\n\n"
-                    "Do you want to use these addresses?",
+                    f"<b>Most Used Ship From:</b> {suggestion['from_city']}\n"
+                    f"<b>Most Used Ship To:</b> {suggestion['to_city']}\n\n"
+                    "<b>Do you want to use these addresses?</b>",
                 "options": [
                     {"label": "Use Suggested Addresses", "value": "smart_address"},
                     {"label": "Choose Warehouse Manually", "value": "manual_address"}
@@ -570,10 +570,7 @@ def handle_chat(user_message):
             for i, w in enumerate(warehouses)
             ]
 
-            return {
-                "response": f"{WAREHOUSE_ICON} Please select a warehouse:",
-                "options": options
-            }
+            return {"response": f"<b>{WAREHOUSE_ICON} Please select a warehouse:</b>", "options": options}
         
         # ================= PAST SHIPMENT SELECTION =================
         if conversation_state["flow_mode"] == "shipping" and user_message.startswith("past_"):
@@ -895,7 +892,7 @@ def handle_chat(user_message):
                     </svg>
                     Suggested addresses selected successfully.
                     </span><br>
-                    Enter Product Name:
+                    <b>Enter Product Name:</b>
                     """
                 }
 
@@ -916,10 +913,7 @@ def handle_chat(user_message):
                 for i, w in enumerate(warehouses)
             ]
 
-            return {
-                "response": f"{WAREHOUSE_ICON} Please select a warehouse:",
-                "options": options
-            }
+            return {"response": f"<b>{WAREHOUSE_ICON} Please select a warehouse:</b>", "options": options}
         # ================= START FRESH =================
         if user_message == "fresh":
 
@@ -993,38 +987,38 @@ def handle_chat(user_message):
             "value": "add_new"
             })
 
-            return {"response": f"{HOME_ICON} Select ShipTo Address:", "options": options}
+            return {"response": f"<b>{HOME_ICON} Select ShipTo Address:<b>", "options": options}
 
         # ================= NEW ADDRESS FLOW =================
         if conversation_state["new_address_mode"]:
 
             if not conversation_state["new_name"]:
                 conversation_state["new_name"] = user_message
-                return {"response": "Enter Phone:"}
+                return {"response": "<b>Enter Phone:</b>"}
 
             if not conversation_state["new_phone"]:
                 phone = re.sub(r"\D", "", user_message)
                 if len(phone) != 10:
                     return {"response": "Phone must be 10 digits."}
                 conversation_state["new_phone"] = phone
-                return {"response": "Enter Email:"}
+                return {"response": "<b>Enter Email:</b>"}
 
             if not conversation_state["new_email"]:
                 conversation_state["new_email"] = user_message
-                return {"response": "Enter Address Line 1:"}
+                return {"response": "<b>Enter Address Line 1:</b>"}
 
             if not conversation_state["new_address1"]:
                 conversation_state["new_address1"] = user_message
-                return {"response": "Enter Postal Code:"}
+                return {"response": "<b>Enter Postal Code:</b>"}
 
             if not conversation_state["new_postalCode"]:
                 postal = re.sub(r"\D", "", user_message)
                 if not is_valid_pincode(postal):
-                    return {"response": "Postal code must be 6 digits."}
+                    return {"response": "<b>Postal code must be 6 digits.</b>"}
 
                 pin_data = get_pincode_details(postal)
                 if not pin_data:
-                    return {"response": "Invalid pincode."}
+                    return {"response": "<b>Invalid pincode.</b>"}
 
                 conversation_state["new_postalCode"] = postal
                 conversation_state["new_city"] = pin_data["city"]
@@ -1033,19 +1027,19 @@ def handle_chat(user_message):
                 save_result = save_new_shipto_address(conversation_state)
 
                 if save_result.get("statusCode") != 200:
-                    return {"response": "Failed to save address."}
+                    return {"response": "<b>Failed to save address.</b>"}
 
                 conversation_state["new_address_mode"] = False
                 conversation_state["shipto"] = get_all_shipto_addresses()[-1]
 
-                return {"response": "Address saved. Enter Product Name:"}
+                return {"response": "<b>Address saved. Enter Product Name:</b>"}
 
          # ShipTo selection
         if conversation_state["warehouse"] and not conversation_state["shipto"]:
 
             if user_message == "add_new":
                 conversation_state["new_address_mode"] = True
-                return {"response": "Enter Name:"}
+                return {"response": "<b>Enter Name:</b>"}
 
             if user_message.isdigit():
                 idx = int(user_message) - 1
@@ -1055,42 +1049,42 @@ def handle_chat(user_message):
                     return {"response": "Invalid ShipTo selection."}
 
                 conversation_state["shipto"] = shipto[idx]
-                return {"response": "Enter Product Name:"}
+                return {"response": "<b>Enter Product Name:</b>"}
             
         # ================= PRODUCT DETAILS =================
         if conversation_state["shipto"] and not conversation_state["product"]:
             conversation_state["product"] = user_message
-            return {"response": "Enter Quantity:"}
+            return {"response": "<b>Enter Quantity:</b>"}
 
         if conversation_state["product"] and not conversation_state["quantity"]:
 
             qty = re.sub(r"\D", "", user_message)
 
             if not qty:
-                return {"response": "Quantity must be numeric."}
+                return {"response": "<b>Quantity must be numeric.</b>"}
 
             conversation_state["quantity"] = int(qty)
-            return {"response": "Enter Invoice Amount:"}
+            return {"response": "<b>Enter Invoice Amount:</b>"}
 
         if conversation_state["quantity"] and not conversation_state["invoice_amount"]:
 
             amount = safe_float(user_message)
 
             if amount is None:
-                return {"response": "Invoice amount must be numeric."}
+                return {"response": "<b>Invoice amount must be numeric.</b>"}
 
             conversation_state["invoice_amount"] = float(amount)
-            return {"response": "Enter Number of Boxes:"}
+            return {"response": "<b>Enter Number of Boxes:</b>"}
 
         if conversation_state["invoice_amount"] and not conversation_state["noOfBoxes"]:
 
             boxes = re.sub(r"\D", "", user_message)
 
             if not boxes:
-                return {"response": "Number of boxes must be numeric."}
+                return {"response": "<b>Number of boxes must be numeric.</b>"}
 
             conversation_state["noOfBoxes"] = int(boxes)
-            return {"response": "Enter Dimensions (L W H):"}
+            return {"response": "<b>Enter Dimensions (<b>L W H</b>):</b>"}
 
         if conversation_state["noOfBoxes"] and not conversation_state["length"]:
             nums = re.findall(r"\d+", user_message)
@@ -1099,12 +1093,12 @@ def handle_chat(user_message):
             conversation_state["length"] = float(nums[0])
             conversation_state["width"] = float(nums[1])
             conversation_state["height"] = float(nums[2])
-            return {"response": "Enter Weight (kg):"}
+            return {"response": "<b>Enter Weight (kg):</b>"}
 
         if conversation_state["length"] and not conversation_state["weight"]:
             weight = safe_float(user_message)
             if weight is None:
-                return {"response": "Weight must be numeric."}
+                return {"response": "<b>Weight must be numeric.</b>"}
             conversation_state["weight"] = weight
 
             result = get_quote(
@@ -1209,7 +1203,7 @@ def handle_chat(user_message):
                 return format_shipment(result)
             else:
                 reset_state()
-                return {"response": "Shipment cancelled."}
+                return {"response": "<b>Shipment cancelled.</b>"}
         
 
         # AI RESPONSE GENERATION WITH TOOL CALLS
@@ -1233,7 +1227,7 @@ You do NOT answer unrelated questions.
 
 If user asks something outside shipping or tracking:
 Respond politely:
-"I can only assist with shipping quotes, creating shipments, and shipment tracking."
+"I can only assist with <b>shipping quotes, creating shipments, and shipment tracking.</b>"
 
 Do NOT repeat this unnecessarily if the conversation is already about shipping.
 
@@ -1540,18 +1534,18 @@ def format_quote(result):
     })
 
     msg = (
-        f"{LOCATION_ICON} From: {result['from_details']['city']} "
+        f"<b>{LOCATION_ICON} From:</b> {result['from_details']['city']} "
         f"({result['from_details']['state']}), {result['from_details']['country']}<br>"
 
-        f"{LOCATION_ICON} To: {result['to_details']['city']} "
+        f"<b>{LOCATION_ICON} To:</b> {result['to_details']['city']} "
         f"({result['to_details']['state']}), {result['to_details']['country']}<br><br>"
 
-        f"{WEIGHT_ICON} Weight: {conversation_state['weight']} kg<br>"
+        f"<b>{WEIGHT_ICON} Weight:</b> {conversation_state['weight']} kg<br>"
 
-        f"{DIM_ICON} Dimensions: {conversation_state['length']} x "
+        f"<b>{DIM_ICON} Dimensions:</b> {conversation_state['length']} x "
         f"{conversation_state['width']} x {conversation_state['height']} cm<br><br>"
 
-        f"{BOX_ICON} Available Shipping Options:<br><br>"
+        f"<b>{BOX_ICON} Available Shipping Options:</b><br><br>"
     )
 
     options = []
