@@ -82,7 +82,7 @@ style="vertical-align:middle;margin-right:6px">
 """
 
 HOME_ICON = """
-<svg viewBox="0 0 24 24" width="16" height="16"
+<svg viewBox="0 0 24 24" width="20" height="20"
 style="vertical-align:middle;margin-right:6px">
 <path d="M3 10l9-7 9 7"/>
 <path d="M5 10v10h14V10"/>
@@ -541,8 +541,33 @@ def handle_chat(user_message):
             conversation_state["available_warehouses"] = warehouses
 
             options = [
-                {"label": f"{w.get('addressName')} ({w.get('city')})", "value": str(i+1)}
-                for i, w in enumerate(warehouses)
+            {
+            "label": f"""
+            <div style="display:flex;flex-direction:column;align-items:center;text-align:center">
+
+            <div style="margin-bottom:6px">
+            {WAREHOUSE_ICON}
+            </div>
+
+            <div style="
+            font-weight:600;
+            font-size:13px;
+            max-width:140px;
+            word-break:break-word;
+            line-height:1.3;
+            ">
+            {w.get('addressName')}
+            </div>
+
+            <div style="font-size:12px;color:#333">
+            {w.get('city')}
+            </div>
+
+            </div>
+            """,
+            "value": str(i+1)
+            }
+            for i, w in enumerate(warehouses)
             ]
 
             return {
@@ -933,11 +958,25 @@ def handle_chat(user_message):
             options = [
             {
             "label": f"""
-            <span style="display:flex;flex-direction:column">
-            <span>{HOME_ICON} {s.get('addressName')}</span>
-            <span>{s.get('city')} ({s.get('postalCode')}, {s.get('state')})</span>
-            <span>Phone: {s.get('phone')}</span>
-            </span>
+            <div style="display:flex;flex-direction:column;align-items:center;text-align:center">
+
+            <div style="margin-bottom:6px">
+            {HOME_ICON}
+            </div>
+
+            <div style="font-weight:600">
+            {s.get('addressName')}
+            </div>
+
+            <div>
+            {s.get('city')} ({s.get('postalCode')}, {s.get('state')})
+            </div>
+
+            <div>
+            Phone: {s.get('phone')}
+            </div>
+
+            </div>
             """,
             "value": str(i+1)
             }

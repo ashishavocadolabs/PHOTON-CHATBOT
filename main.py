@@ -530,7 +530,8 @@ body {
 
     display:flex;
     flex-direction:column;
-    align-items:flex-start;
+    align-items:center;
+    justify-content:center;
 
     width:48%;
     margin:6px 1%;
@@ -540,7 +541,7 @@ body {
     border-radius:14px;
     border:1.5px solid #2f6f6f;
 
-    background: #e8f2f2;
+    background:#e8f2f2;
 
     font-size:13px;
 
@@ -549,6 +550,13 @@ body {
     transition:all 0.25s ease;
 
     box-shadow:0 3px 8px rgba(0,0,0,0.08);
+
+    text-align:center;
+
+    /* 🔥 FIX FOR LONG WAREHOUSE NAMES */
+    word-break:break-word;
+    white-space:normal;
+    line-height:1.3;
 
     position: relative;
     z-index: 10;
@@ -1154,6 +1162,8 @@ function renderBotResponse(data) {
             btn.innerHTML = option.label;
 
             btn.onclick = function () {
+    
+                wrapper.remove();
                 sendOption(option.value, option.label);
             };
 
