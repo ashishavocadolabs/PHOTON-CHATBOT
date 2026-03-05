@@ -119,6 +119,7 @@ def analyze_recent_shipments(data):
     lengths = []
     widths = []
     heights = []
+    boxes = []
 
     for s in shipments:
 
@@ -149,16 +150,23 @@ def analyze_recent_shipments(data):
         except:
             continue
 
+        try:
+            boxes.append(int(s.get("noOfPackages",1)))
+        except:
+            pass
+
     if not weights:
         return None
 
     return {
         "from_city": Counter(from_cities).most_common(1)[0][0],
         "to_city": Counter(to_cities).most_common(1)[0][0],
-        "weight": Counter(weights).most_common(1)[0][0],
-        "length": Counter(lengths).most_common(1)[0][0],
-        "width": Counter(widths).most_common(1)[0][0],
-        "height": Counter(heights).most_common(1)[0][0],
+
+        "weight": Counter(weights).most_common(3),
+        "length": Counter(lengths).most_common(3),
+        "width": Counter(widths).most_common(3),
+        "height": Counter(heights).most_common(3),
+        "boxes": Counter(boxes).most_common(3)
     }
 
 
@@ -328,15 +336,14 @@ def extract_quote_fields(message):
 def detect_intent(message):
     msg = message.lower().strip()
 
-    # Strict matching (avoid substring issue like "ship_same")
-    if msg in ["ship", "shipping", "create shipment", "book shipment"]:
-        return "shipping"
+    if "track" in msg:
+        return "tracking"
 
     if "quote" in msg or "rate" in msg or "price" in msg:
         return "quote"
 
-    if "track" in msg or "tracking" in msg:
-        return "tracking"
+    if "ship" in msg or "create shipment" in msg or "shipment" in msg:
+        return "shipping"
 
     if "help" in msg:
         return "help"
@@ -481,7 +488,7 @@ def handle_chat(user_message):
             today = datetime.now()
             all_shipments = []
 
-            for i in range(30):  # last 7 days
+            for i in range(7):  # last 7 days
                 check_date = (today -   timedelta(days=i)).strftime("%Y-%m-%d")
                 recent = get_recent_shipments(check_date)
 
@@ -492,6 +499,15 @@ def handle_chat(user_message):
                 # 🔥 AI ANALYSIS LAYER  
                 analysis = analyze_recent_shipments({"data": all_shipments})
 
+                conversation_state["weight_suggestions"] = [x[0] for x in analysis["weight"]]
+
+                conversation_state["dimension_suggestions"] = {
+                    "length": [x[0] for x in analysis["length"]],
+                    "width": [x[0] for x in analysis["width"]],
+                    "height": [x[0] for x in analysis["height"]],
+                }
+                conversation_state["box_suggestions"] = [x[0] for x in analysis["boxes"]]
+
                 if analysis:
                     conversation_state["ai_suggestion"] = analysis
 
@@ -499,9 +515,9 @@ def handle_chat(user_message):
                         "response":
                             f"{CHART_ICON} Shipment Insights (Last 30 Days)\n\n"
                             f"• Most used route: {analysis['from_city']} → {analysis['to_city']}\n"
-                            f"• Most common weight: {analysis['weight']} kg\n"
+                            f"• Most common weight: {analysis['weight'][0][0]} kg\n"
                             f"• Most common dimensions: "
-                            f"{analysis['length']}x{analysis['width']}x{analysis['height']} cm\n\n"
+                            f"{analysis['length'][0][0]}x{analysis['width'][0][0]}x{analysis['height'][0][0]}"
                             "What would you like to do?",
                         "options": [
                             {"label": "🚀 Ship Using Most Frequent Details", "value": "smart_ship"},
@@ -602,10 +618,10 @@ def handle_chat(user_message):
                 return {"response": "No AI suggestion available."}
 
             # Prefill state
-            conversation_state["weight"] = float(analysis["weight"])
-            conversation_state["length"] = float(analysis["length"])
-            conversation_state["width"] = float(analysis["width"])
-            conversation_state["height"] = float(analysis["height"])
+            conversation_state["weight"] = float(analysis["weight"][0][0])
+            conversation_state["length"] = float(analysis["length"][0][0])
+            conversation_state["width"] = float(analysis["width"][0][0])
+            conversation_state["height"] = float(analysis["height"][0][0])
 
             # Auto match warehouse
             warehouses = get_all_warehouses()
@@ -914,24 +930,6 @@ def handle_chat(user_message):
             ]
 
             return {"response": f"<b>{WAREHOUSE_ICON} Please select a warehouse:</b>", "options": options}
-        # ================= START FRESH =================
-        if user_message == "fresh":
-
-            warehouses = get_all_warehouses()
-            if not warehouses:
-                return {"response": "No warehouse found."}
-
-            conversation_state["available_warehouses"] = warehouses
-
-            options = [
-                {"label": f"{w.get('addressName')} ({w.get('city')})", "value": str(i+1)}
-                for i, w in enumerate(warehouses)
-            ]
-
-            return {
-                "response": f"Sure! Let's create a new shipment.<br>{WAREHOUSE_ICON} Please select a warehouse:",
-                "options": options
-            }
             
         # Warehouse selection
         if conversation_state["flow_mode"] == "shipping" and not conversation_state["warehouse"] and user_message.isdigit():
@@ -987,7 +985,7 @@ def handle_chat(user_message):
             "value": "add_new"
             })
 
-            return {"response": f"<b>{HOME_ICON} Select ShipTo Address:<b>", "options": options}
+            return {"response": f"<b>{HOME_ICON} Select ShipTo Address:</b>", "options": options}
 
         # ================= NEW ADDRESS FLOW =================
         if conversation_state["new_address_mode"]:
@@ -1074,7 +1072,20 @@ def handle_chat(user_message):
                 return {"response": "<b>Invoice amount must be numeric.</b>"}
 
             conversation_state["invoice_amount"] = float(amount)
-            return {"response": "<b>Enter Number of Boxes:</b>"}
+            boxes = conversation_state.get("box_suggestions", [])
+
+            options = []
+
+            for b in boxes:
+                options.append({
+                    "label": f"{b} Boxes",
+                    "value": str(b)
+                })
+
+            return {
+                "response": "<b>Enter Number of Boxes:</b>",
+                "options": options
+            }
 
         if conversation_state["invoice_amount"] and not conversation_state["noOfBoxes"]:
 
@@ -1084,7 +1095,22 @@ def handle_chat(user_message):
                 return {"response": "<b>Number of boxes must be numeric.</b>"}
 
             conversation_state["noOfBoxes"] = int(boxes)
-            return {"response": "<b>Enter Dimensions (<b>L W H</b>):</b>"}
+            dims = conversation_state.get("dimension_suggestions", {})
+
+            options = []
+
+            for l in dims.get("length", []):
+                for w in dims.get("width", []):
+                    for h in dims.get("height", []):
+                        options.append({
+                            "label": f"{l} x {w} x {h}",
+                            "value": f"{l} {w} {h}"
+                        })
+
+            return {
+                "response": "<b>Enter Dimensions (L W H):</b>",
+                "options": options[:4]
+            }
 
         if conversation_state["noOfBoxes"] and not conversation_state["length"]:
             nums = re.findall(r"\d+", user_message)
@@ -1093,7 +1119,20 @@ def handle_chat(user_message):
             conversation_state["length"] = float(nums[0])
             conversation_state["width"] = float(nums[1])
             conversation_state["height"] = float(nums[2])
-            return {"response": "<b>Enter Weight (kg):</b>"}
+            weights = conversation_state.get("weight_suggestions", [])
+
+            options = []
+
+            for w in weights:
+                options.append({
+                    "label": f"{w} kg",
+                    "value": str(w)
+                })
+
+            return {
+                "response": "<b>Enter Weight (kg):</b>",
+                "options": options
+            }
 
         if conversation_state["length"] and not conversation_state["weight"]:
             weight = safe_float(user_message)
