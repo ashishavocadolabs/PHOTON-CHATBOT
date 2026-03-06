@@ -337,22 +337,71 @@ def extract_quote_fields(message):
 def detect_intent(message):
     msg = message.lower().strip()
 
+    # tracking
     if "track" in msg:
         return "tracking"
 
-    if "quote" in msg or "rate" in msg or "price" in msg:
+    # quote
+    if any(word in msg for word in ["quote","rate","price","cost"]):
         return "quote"
 
-    if "ship" in msg or "create shipment" in msg or "shipment" in msg:
+    # shipping intent
+    if any(word in msg for word in [
+        "ship",
+        "shipment",
+        "create shipment",
+        "send",
+        "parcel",
+        "courier",
+        "deliver"
+    ]):
         return "shipping"
+
+    # label
+    if "label" in msg:
+        return "print_label"
 
     if "help" in msg:
         return "help"
-    
-    if "label" in msg or "print label" in msg:
-        return "print_label"
 
     return None
+
+# =====================================================
+# LLM SHIPPING FIELD EXTRACTION
+# =====================================================
+
+def llm_extract_shipping_details(message):
+
+    prompt = f"""
+Extract shipping details from the message.
+
+Return JSON only.
+
+Fields:
+from_pincode
+to_pincode
+weight
+length
+width
+height
+
+Message:
+{message}
+"""
+
+    response = client.chat.completions.create(
+        model="llama-3.1-8b-instant",
+        temperature=0,
+        messages=[
+            {"role": "system", "content": "Extract logistics data from the user message."},
+            {"role": "user", "content": prompt}
+        ]
+    )
+
+    try:
+        return json.loads(response.choices[0].message.content)
+    except:
+        return {}
 
 # =====================================================
 # MAIN HANDLER
@@ -363,6 +412,27 @@ def handle_chat(user_message):
         user_message = user_message.strip()
         msg = user_message.lower()
         intent = detect_intent(msg)
+
+        # ================= LLM PARSER =================
+
+        if intent is None:
+
+            extracted = llm_extract_shipping_details(user_message)
+
+            if extracted:
+
+                conversation_state.update({
+                    "from_pincode": extracted.get("from_pincode"),
+                    "to_pincode": extracted.get("to_pincode"),
+                    "weight": extracted.get("weight"),
+                    "length": extracted.get("length"),
+                    "width": extracted.get("width"),
+                    "height": extracted.get("height")
+                })
+
+                if extracted.get("from_pincode") and extracted.get("to_pincode"):
+                    conversation_state["flow_mode"] = "quote"
+
         user_name = get_logged_user_name() or "there"
 
         # ================= CANCEL ANYTIME =================
@@ -539,17 +609,28 @@ def handle_chat(user_message):
         # ================= START SHIPPING FROM QUOTE =================
         if user_message == "start_shipping":
 
-            # start shipment flow
-            conversation_state["flow_mode"] = None
+        # move to shipping flow
+            conversation_state["flow_mode"] = "shipping"
 
-            # trigger shipping intent
-            return handle_chat("create shipment")
+            warehouses = get_all_warehouses()
 
+            if not warehouses:
+                return {"response": "No warehouse found."}
 
-        if user_message == "cancel_shipping":
-            reset_state()
-            return {"response": "Shipment creation cancelled."}
+            conversation_state["available_warehouses"] = warehouses
 
+            options = [
+                {
+                    "label": f"{w.get('addressName')} ({w.get('city')})",
+                    "value": str(i+1)
+                }
+                for i, w in enumerate(warehouses)
+            ]
+
+            return {
+                "response": "<b>Please select warehouse:</b>",
+                "options": options
+            }
         # ================= SHIPPING FLOW =================
         if intent == "shipping" and conversation_state["flow_mode"] is None:
             reset_state()
