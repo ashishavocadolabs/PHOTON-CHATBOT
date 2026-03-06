@@ -1,5 +1,5 @@
 from collections import Counter
-from datetime import timedelta
+from datetime import datetime, timedelta
 import os
 import json
 import re
@@ -172,12 +172,10 @@ def analyze_recent_shipments(data):
 
 def get_smart_address_suggestion():
 
-    from datetime import datetime, timedelta
-
     today = datetime.now()
     all_shipments = []
 
-    for i in range(7):
+    for i in range(30):
         check_date = (today - timedelta(days=i)).strftime("%Y-%m-%d")
         recent = get_recent_shipments(check_date)
 
@@ -259,6 +257,8 @@ def reset_state():
         "recent_shipments": [],
         "selected_past_shipment": None,
         "modify_mode": False,
+
+        "smart_flow": False
     }
 
 reset_state()
@@ -464,26 +464,6 @@ def handle_chat(user_message):
         if intent == "shipping" and conversation_state["flow_mode"] is None:
             reset_state()
             conversation_state["flow_mode"] = "shipping"
-            # SMART ADDRESS SUGGESTION
-            suggestion = get_smart_address_suggestion()
-
-            if suggestion:
-
-                conversation_state["address_ai"] = suggestion
-
-                return {
-                    "response":
-                    "Smart Address Suggestion\n\n"
-                    f"<b>Most Used Ship From:</b> {suggestion['from_city']}\n"
-                    f"<b>Most Used Ship To:</b> {suggestion['to_city']}\n\n"
-                    "<b>Do you want to use these addresses?</b>",
-                "options": [
-                    {"label": "Use Suggested Addresses", "value": "smart_address"},
-                    {"label": "Choose Warehouse Manually", "value": "manual_address"}
-                ]
-            }
-
-            from datetime import datetime, timedelta
 
             today = datetime.now()
             all_shipments = []
@@ -499,16 +479,16 @@ def handle_chat(user_message):
                 # 🔥 AI ANALYSIS LAYER  
                 analysis = analyze_recent_shipments({"data": all_shipments})
 
-                conversation_state["weight_suggestions"] = [x[0] for x in analysis["weight"]]
-
-                conversation_state["dimension_suggestions"] = {
-                    "length": [x[0] for x in analysis["length"]],
-                    "width": [x[0] for x in analysis["width"]],
-                    "height": [x[0] for x in analysis["height"]],
-                }
-                conversation_state["box_suggestions"] = [x[0] for x in analysis["boxes"]]
-
                 if analysis:
+
+                    conversation_state["weight_suggestions"] = [x[0] for x in analysis["weight"]]
+
+                    conversation_state["dimension_suggestions"] = {
+                        "length": [x[0] for x in analysis["length"]],
+                        "width": [x[0] for x in analysis["width"]],
+                        "height": [x[0] for x in analysis["height"]],
+                    }
+                    conversation_state["box_suggestions"] = [x[0] for x in analysis["boxes"]]
                     conversation_state["ai_suggestion"] = analysis
 
                     return {
@@ -517,12 +497,55 @@ def handle_chat(user_message):
                             f"• Most used route: {analysis['from_city']} → {analysis['to_city']}\n"
                             f"• Most common weight: {analysis['weight'][0][0]} kg\n"
                             f"• Most common dimensions: "
-                            f"{analysis['length'][0][0]}x{analysis['width'][0][0]}x{analysis['height'][0][0]}"
+                            f"{analysis['length'][0][0]}x{analysis['width'][0][0]}x{analysis['height'][0][0]}\n\n"
                             "What would you like to do?",
                         "options": [
-                            {"label": "🚀 Ship Using Most Frequent Details", "value": "smart_ship"},
-                            {"label": "📦 Choose From Recent Shipments", "value": "show_recent"},
-                            {"label": "🆕 Start Fresh Shipment", "value": "fresh"}
+                            {
+                                "label": f"""
+                                <div style="display:flex;flex-direction:column;align-items:center;text-align:center;position:relative">
+
+                                <div style="
+                                position:absolute;
+                                top:-6px;
+                                right:-6px;
+                                background:#2ecc71;
+                                color:white;
+                                font-size:10px;
+                                padding:2px 6px;
+                                border-radius:10px;
+                                font-weight:600;">
+                                Suggested
+                                </div>
+
+                                <div style="margin-bottom:6px">
+                                {TRUCK_ICON}
+                                </div>
+
+                                <div style="font-weight:600;font-size:13px">
+                                Ship Using Most Frequent Details
+                                </div>
+
+                                </div>
+                                """,
+                                "value": "smart_ship"
+                            },
+
+                            {
+                                "label": f"""
+                                <div style="display:flex;flex-direction:column;align-items:center;text-align:center">
+
+                                <div style="margin-bottom:6px">
+                                {WAREHOUSE_ICON}
+                                </div>
+
+                                <div style="font-weight:600;font-size:13px">
+                                Select Warehouse Manually
+                                </div>
+
+                                </div>
+                                """,
+                                "value": "fresh"
+                            }
                         ]
                     }
 
@@ -608,14 +631,74 @@ def handle_chat(user_message):
                     {"label": "❌ Cancel", "value": "cancel"}
                 ]
             }
+
+        # ================= START FRESH SHIPMENT =================
+        if user_message == "fresh":
+
+            warehouses = get_all_warehouses()
+
+            if not warehouses:
+                return {"response": "No warehouse found."}
+
+            conversation_state["available_warehouses"] = warehouses
+
+            options = [
+                {
+                    "label": f"""
+                    <div style="display:flex;flex-direction:column;align-items:center;text-align:center">
+
+                    <div style="margin-bottom:6px">
+                    {WAREHOUSE_ICON}
+                    </div>
+
+                    <div style="
+                    font-weight:600;
+                    font-size:13px;
+                    max-width:140px;
+                    word-break:break-word;
+                    line-height:1.3;
+                    ">
+                    {w.get('addressName')}
+                    </div>
+
+                    <div style="font-size:12px;color:#333">
+                    {w.get('city')}
+                    </div>
+
+                    </div>
+                    """,
+                    "value": str(i+1)
+                }
+                for i, w in enumerate(warehouses)
+            ]
+
+            return {
+                "response": f"<b>{WAREHOUSE_ICON} Please select a warehouse:</b>",
+                "options": options
+            }
         
         # ================= SMART SHIP =================
         if user_message == "smart_ship":
+
+            conversation_state["smart_flow"] = True
 
             analysis = conversation_state.get("ai_suggestion")
 
             if not analysis:
                 return {"response": "No AI suggestion available."}
+            
+             # CLEAN SHIPPING STATE
+            conversation_state.update({
+                "product": None,
+                "quantity": None,
+                "invoice_amount": None,
+                "noOfBoxes": None,
+                "carrierId": None,
+                "serviceId": None,
+                "carrierCode": None,
+                "serviceCode": None,
+                "awaiting_confirmation": False
+            })
 
             # Prefill state
             conversation_state["weight"] = float(analysis["weight"][0][0])
@@ -627,6 +710,7 @@ def handle_chat(user_message):
             warehouses = get_all_warehouses()
             conversation_state["available_warehouses"] = warehouses
 
+            conversation_state["warehouse"] = None
             for w in warehouses:
                 if str(w.get("city","")).lower() == str(analysis["from_city"]).lower():
                     conversation_state["warehouse"] = w
@@ -635,6 +719,7 @@ def handle_chat(user_message):
             shipto_list = get_all_shipto_addresses()
             conversation_state["available_shipto"] = shipto_list
 
+            conversation_state["shipto"] = None
             for s in shipto_list:
                 if str(s.get("city","")).lower() == str(analysis["to_city"]).lower():
                     conversation_state["shipto"] = s
@@ -643,19 +728,18 @@ def handle_chat(user_message):
             if not conversation_state["warehouse"] or not conversation_state["shipto"]:
                 return {"response": "Unable to auto-match addresses. Please select manually."}
 
-            # Call quote automatically
-            result = get_quote(
-                conversation_state["warehouse"]["postalCode"],
-                conversation_state["shipto"]["postalCode"],
-                conversation_state["weight"],
-                conversation_state["length"],
-                conversation_state["width"],
-                conversation_state["height"]
-            )
+            return {
+                "response": f"""
+                <b>Suggested shipment details loaded.</b><br><br>
 
-            conversation_state["available_services"] = result.get("data",{}).get("servicesOnDate",[])
+                {LOCATION_ICON} From: {analysis['from_city']}<br>
+                {LOCATION_ICON} To: {analysis['to_city']}<br>
+                {WEIGHT_ICON} Weight: {conversation_state['weight']} kg<br>
+                {DIM_ICON} Dimensions: {conversation_state['length']} x {conversation_state['width']} x {conversation_state['height']} cm<br><br>
 
-            return format_quote(result)
+                <b>Enter Product Name:</b>
+                """
+            }
         
         if user_message == "show_recent":
 
@@ -1089,6 +1173,28 @@ def handle_chat(user_message):
 
         if conversation_state["invoice_amount"] and not conversation_state["noOfBoxes"]:
 
+            # SMART SHIP → skip dimension + weight
+            if conversation_state.get("smart_flow"):
+
+                boxes = re.sub(r"\D", "", user_message)
+
+                if not boxes:
+                    return {"response": "<b>Number of boxes must be numeric.</b>"}
+
+                conversation_state["noOfBoxes"] = int(boxes)
+
+                result = get_quote(
+                    conversation_state["warehouse"]["postalCode"],
+                    conversation_state["shipto"]["postalCode"],
+                    conversation_state["weight"],
+                    conversation_state["length"],
+                    conversation_state["width"],
+                    conversation_state["height"]
+                )
+
+                conversation_state["available_services"] = result.get("data",{}).get("servicesOnDate",[])
+
+                return format_quote(result)
             boxes = re.sub(r"\D", "", user_message)
 
             if not boxes:
