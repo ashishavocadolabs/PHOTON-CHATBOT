@@ -1,10 +1,12 @@
 from fastapi import FastAPI
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, StreamingResponse
 from pydantic import BaseModel
 from core.ai_orchestrator import handle_chat, reset_state
 from services.auth_service import get_logged_user_name
+from services.shipping_service import print_label
 from fastapi.staticfiles import StaticFiles
-
+import base64
+import io
 app = FastAPI()
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
@@ -192,11 +194,14 @@ body {
 
 .chat-messages::before {
     content:"";
-    position:fixed;   /* FIX */
+    position:fixed;
     inset:0;
+
     background: url('/static/photon-img.jpg') center center no-repeat;
-    background-size: 280px;
-    opacity: 0.05;       /* softer */
+    background-size: 320px;
+
+    opacity:0.12;   /* increased from 0.05 */
+
     pointer-events:none;
     z-index:0;
 }
@@ -978,6 +983,17 @@ stroke="currentColor" stroke-width="2"/>
                     Track Shipment
                     </button>
 
+                    <button class="option-btn" onclick="sendOption('print label','Print Label')">
+
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                    <rect x="6" y="9" width="12" height="8" stroke="currentColor" stroke-width="2"/>
+                    <path d="M6 9V5h12v4" stroke="currentColor" stroke-width="2"/>
+                    <path d="M9 17h6" stroke="currentColor" stroke-width="2"/>
+                    </svg>
+
+                    Print Label
+                    </button>
+
                 </div>
 
             </div>
@@ -1415,6 +1431,17 @@ async function resetChat(element){
                 Track Shipment
                 </button>
 
+                <button class="option-btn" onclick="sendOption('print label','Print Label')">
+
+                <svg viewBox="0 0 24 24">
+                <rect x="6" y="9" width="12" height="8"/>
+                <path d="M6 9V5h12v4"/>
+                <path d="M9 17h6"/>
+                </svg>
+
+                Print Label
+                </button>
+
             </div>
 
         </div>
@@ -1474,3 +1501,42 @@ async def reset_chat():
 @app.get("/favicon.ico")
 async def favicon():
     return {}
+# ================= DOWNLOAD LABEL =================
+
+@app.get("/download-label")
+def download_label(tracking_no: str):
+
+    result = print_label(tracking_no)
+
+    # API error handling
+    if not result or result.get("statusCode") != 200:
+        return {"error": result.get("message", "Label not available")}
+
+    data = result.get("data")
+
+    if not data:
+        return {"error": "No label data returned"}
+
+    # case 1: data is dict
+    if isinstance(data, dict):
+        pdf_base64 = data.get("fileData")
+
+    # case 2: data is raw base64 string
+    elif isinstance(data, str):
+        pdf_base64 = data
+
+    else:
+        return {"error": "Invalid label format"}
+
+    if not pdf_base64:
+        return {"error": "Label file not found"}
+
+    pdf_bytes = base64.b64decode(pdf_base64)
+
+    return StreamingResponse(
+        io.BytesIO(pdf_bytes),
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f"attachment; filename=label_{tracking_no}.pdf"
+        }
+    )

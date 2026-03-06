@@ -343,3 +343,28 @@ def get_recent_shipments(date):
         return {"statusCode": response.status_code, "error": response.text}
 
     return response.json()
+
+# PRINT LABEL API
+def print_label(tracking_number, box_no=None, date=None):
+
+    url = f"{BASE_URL}/api/Business/PrintLabel"
+
+    params = {
+        "TrackingNo": tracking_number
+    }
+
+    if box_no:
+        params["BoxNo"] = box_no
+
+    if date:
+        params["date"] = date
+
+    response = safe_request("GET", url, params=params, headers=get_headers())
+
+    if isinstance(response, dict):
+        return {"statusCode": 500, "error": response["error"]}
+
+    if response.status_code != 200:
+        return {"statusCode": response.status_code, "error": response.text}
+
+    return response.json()

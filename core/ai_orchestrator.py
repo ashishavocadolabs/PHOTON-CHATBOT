@@ -15,7 +15,8 @@ from services.shipping_service import (
     save_new_shipto_address,
     get_pincode_details,
     get_all_warehouses,
-    get_recent_shipments  
+    get_recent_shipments,
+    print_label
 )
 
 load_dotenv()
@@ -347,6 +348,9 @@ def detect_intent(message):
 
     if "help" in msg:
         return "help"
+    
+    if "label" in msg or "print label" in msg:
+        return "print_label"
 
     return None
 
@@ -374,7 +378,8 @@ def handle_chat(user_message):
                 "options": [
                 {"label": "Create Shipment", "value": "create shipment"},
                 {"label": "Get Quote", "value": "quote"},
-                {"label": "Track Shipment", "value": "tracking"}
+                {"label": "Track Shipment", "value": "tracking"},
+                {"label": "Print Label", "value": "print label"}
             ]
         }
 
@@ -388,6 +393,63 @@ def handle_chat(user_message):
             result = get_tracking(user_message)
             reset_state()
             return format_tracking(result)
+        
+        # ================= PRINT LABEL =================
+
+        if intent == "print_label":
+            reset_state()
+            conversation_state["flow_mode"] = "print_label"
+
+            today = datetime.now()
+            shipments = []
+
+            for i in range(7):
+                check_date = (today - timedelta(days=i)).strftime("%Y-%m-%d")
+                recent = get_recent_shipments(check_date)
+
+                if recent.get("statusCode") == 200 and recent.get("data"):
+                    shipments.extend(recent.get("data"))
+
+            options = []
+
+            for s in shipments[:5]:
+                tracking = s.get("trackingNo") or s.get("trackingNumber")
+                carrier = s.get("carrierCode") or "Carrier"
+
+                if tracking:
+                    options.append({
+                        "label": f"{carrier} - {tracking}",
+                        "value": tracking
+                    })
+
+            return {
+                "response": "<b>Select shipment to print label:</b>",
+                "options": options
+            }
+        
+        # ================= LABEL DOWNLOAD =================
+        if conversation_state["flow_mode"] == "print_label" and re.match(r"^\d+$", user_message):
+
+            tracking_no = user_message.replace("label_", "")
+
+            return {
+                "response": f"""
+            <b>Download your label:</b><br><br>
+
+            <a href="/download-label?tracking_no={tracking_no}" target="_blank"
+            style="
+            display:inline-block;
+            padding:8px 14px;
+            background:#2f6f6f;
+            color:white;
+            border-radius:8px;
+            text-decoration:none;
+            font-size:13px;
+            ">
+            Download Label
+            </a>
+            """
+        }
 
         # ================= HELP INTENT =================
         if intent == "help":
@@ -1792,9 +1854,21 @@ Courier: """ + carrier + """
 </svg>
 Tracking Number: """ + tracking + """
 </span>
-"""
-    }
 
+<br><br>
+<b>Do you want to print this label?</b>
+""",
+    "options": [
+        {
+            "label": "Download Label",
+             "value": f"label_{tracking}"
+        },
+        {
+            "label": "Cancel",
+            "value": "cancel"
+        }
+    ]
+}
 
 def format_tracking(result):
 
