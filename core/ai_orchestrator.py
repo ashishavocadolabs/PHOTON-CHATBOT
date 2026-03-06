@@ -414,7 +414,7 @@ def handle_chat(user_message):
                 "<b>Dimensions</b> (L W H)"
             }
 
-        if conversation_state["flow_mode"] == "quote":
+        if conversation_state["flow_mode"] == "quote" and not conversation_state["available_services"]:
 
             extract_quote_fields(user_message)
 
@@ -457,8 +457,36 @@ def handle_chat(user_message):
             )
 
             response = format_quote(result)
-            reset_state()
+
+            # stop quote loop
+            conversation_state["flow_mode"] = None
+
+            # add confirmation buttons
+            response["options"].append({
+            "label": "Yes, Create Shipment",
+            "value": "start_shipping"
+            })
+
+            response["options"].append({
+            "label": "No",
+            "value": "cancel_shipping"
+            })
+
             return response
+        
+        # ================= START SHIPPING FROM QUOTE =================
+        if user_message == "start_shipping":
+
+            # start shipment flow
+            conversation_state["flow_mode"] = None
+
+            # trigger shipping intent
+            return handle_chat("create shipment")
+
+
+        if user_message == "cancel_shipping":
+            reset_state()
+            return {"response": "Shipment creation cancelled."}
 
         # ================= SHIPPING FLOW =================
         if intent == "shipping" and conversation_state["flow_mode"] is None:
@@ -912,7 +940,7 @@ def handle_chat(user_message):
 
             conversation_state["available_services"] = services
 
-            # 🤖 AI COURIER SELECTION
+            # AI COURIER SELECTION
             best_service = select_best_courier(services)
 
             if best_service:
