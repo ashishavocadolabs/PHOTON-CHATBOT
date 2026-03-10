@@ -534,7 +534,7 @@ def handle_chat(user_message):
 
             for s in shipments[:5]:
                 tracking = s.get("trackingNo") or s.get("trackingNumber")
-                carrier = s.get("carrierCode") or "Carrier"
+                carrier = s.get("carrierId") or "Carrier"
 
                 if tracking:
                     options.append({

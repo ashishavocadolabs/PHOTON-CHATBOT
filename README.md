@@ -227,8 +227,27 @@ The memory store automatically records every user utterance and every RAG
 response, so follow‑up questions like "what did I just ask you about the
 warehouse rules?" will work naturally.
 
-No changes to ``main.py`` are required – the new behaviour is injected inside
-``core/ai_orchestrator.handle_chat``.
+The core handler remains unchanged; however, a lightweight agent wrapper has
+been added in ``core/agent.py`` which exposes the same functionality via an
+"agentic" interface (perceive/plan/act).  The current implementation provides
+several built‑in enhancements:
+
+* **Retrieval‑first planning (with escape hatch)** – the agent consults the
+  document index before invoking the shipping logic, but it first checks for a
+  logistics intent or an ongoing flow.  Queries like "I want to ship" or
+  "get quote" now bypass RAG and trigger the usual APIs immediately, preventing
+  the documentation from hijacking the conversation.
+* **State persistence** – conversation state is written to
+  ``agent_state.json`` after every turn and reloaded on startup, enabling
+  longer lived interactions or restarts without losing context.
+
+This design makes it easy to layer further behaviour such as multi‑step
+reasoning, scheduled triggers, or external tool orchestration while keeping
+the original chat logic untouched.
+
+``main.py`` now defaults to routing incoming messages through
+``chat_agent.handle_message``; code elsewhere can continue to call
+``core.ai_orchestrator.handle_chat`` directly if preferred.
 
 #### 🎭 Service Modules
 #### 📦 Shipping Service

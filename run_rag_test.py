@@ -30,8 +30,14 @@ print("typo query answer:\n", typo_ans)
 
 # test ai_orchestrator small talk
 from core.ai_orchestrator import handle_chat
-print("small talk - how are you:", handle_chat("how are you"))
-print("small talk - who are you:", handle_chat("who are you"))
-print("small talk - you know me:", handle_chat("you know me"))
+print("legacy small talk - how are you:", handle_chat("how are you"))
+print("legacy small talk - who are you:", handle_chat("who are you"))
+print("legacy small talk - you know me:", handle_chat("you know me"))
+
+# test agent wrapper
+from core.agent import chat_agent
+print("agent small talk - how are you:", chat_agent.handle_message("how are you"))
+print("agent small talk - who are you:", chat_agent.handle_message("who are you"))
+print("agent small talk - you know me:", chat_agent.handle_message("you know me"))
 
 print("script done")

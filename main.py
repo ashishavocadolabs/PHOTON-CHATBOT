@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from fastapi.responses import HTMLResponse, StreamingResponse
 from pydantic import BaseModel
 from core.ai_orchestrator import handle_chat, reset_state
+from core.agent import chat_agent
 from services.auth_service import get_logged_user_name
 from services import tts_service  # ElevenLabs text‑to‑speech helper
 from services.shipping_service import print_label
@@ -1544,7 +1545,10 @@ startHiBubble();
 
 @app.post("/chat")
 async def chat(request: ChatRequest):
-    return handle_chat(request.message)
+    """Main chat endpoint routed through the agent abstraction."""
+    # agent currently just calls the legacy handler, but this provides a
+    # clean extension point for future “agentic” logic.
+    return chat_agent.handle_message(request.message)
 
 
 # legacy voice endpoint – the front-end still sends audio here but we
