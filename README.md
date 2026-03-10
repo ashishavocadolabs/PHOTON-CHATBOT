@@ -82,7 +82,17 @@ PHOTON/
 │
 ├── core/
 │   ├── __pycache__/
-│   └── ai_orchestrator.py
+│   ├── ai_orchestrator.py
+│   ├── rag_engine.py               # RAG / memory logic (documents & conversation)
+│
+├── pipelines/                      # helper code for chunking/embeddings/ingest
+│   ├── chunking.py
+│   ├── embeddings.py
+│   └── ingestion_pipeline.py
+│
+├── retrieval/                      # vector store implementations
+│   ├── vector_store.py
+│   └── bm25_index.py
 │
 ├── models/
 │   └── (Future: DB models / schemas)
@@ -96,6 +106,9 @@ PHOTON/
 │   ├── __pycache__/
 │   └── tracking_shipment.py
 │
+├── knowledge/                      # documents used by the RAG engine
+│   └── photon_docs/
+│
 ├── venv/
 ├── .env
 ├── main.py
@@ -107,7 +120,7 @@ PHOTON/
 
 * Modular service structure
 
-* Extendable AI layer
+* Extendable AI layer (now includes retrieval‑augmented generation & conversational memory)
 
 * Scalable folder organization
 
@@ -150,6 +163,48 @@ PHOTON/
 * API_KEY=your_api_key
 * USER_ID=your_photon_id
 * Password=your_photon_password
+
+* **New for RAG**: install numeric and vector libraries
+```bash
+pip install numpy faiss-cpu  # faiss optional; you can remove or replace with sklearn
+```
+
+### 🧠 Retrieval‑Augmented Generation (RAG) & Memory
+
+A new ``core/rag_engine.py`` module powers a simple RAG system backed by the
+``knowledge/photon_docs`` directory.  Documents are chunked, embedded and stored
+in a lightweight on‑disk vector index; user messages are also recorded to a
+separate memory index so that the assistant can recall earlier turns.
+
+#### Indexing your documents
+
+Run the following from a Python REPL or a one‑line script:
+
+```python
+from pipelines.ingestion_pipeline import ingest_directory
+# rebuild the index (takes a few seconds for large corpora)
+ingest_directory("knowledge/photon_docs", "rag_index.pkl")
+```
+
+The ``rag_index.pkl`` and ``memory_index.pkl`` files will appear in the repo
+root.  They are used automatically by the assistant; you can periodically
+re‑run the ingestion step after adding new information to ``photon_docs``.
+
+#### How it affects the chat flow
+
+When the chat handler receives a message it first asks ``rag_engine`` for an
+answer.  If the query matches something in the index the retrieved text is
+prepended to the prompt and the LLM will generate a fact‑based response.  If
+no relevant documents or memories exist the system falls back to the original
+shipping‑only behaviour.
+
+The memory store automatically records every user utterance and every RAG
+response, so follow‑up questions like "what did I just ask you about the
+warehouse rules?" will work naturally.
+
+No changes to ``main.py`` are required – the new behaviour is injected inside
+``core/ai_orchestrator.handle_chat``.
+
 #### 🎭 Service Modules
 #### 📦 Shipping Service
 

@@ -5,6 +5,9 @@ import json
 import re
 from groq import Groq
 from dotenv import load_dotenv
+
+# retrieval-augmented generation helper
+from core.rag_engine import rag_engine
 from services.auth_service import get_logged_user_name
 from services.shipping_service import (
     get_quote,
@@ -437,6 +440,14 @@ Message:
 # =====================================================
 
 def handle_chat(user_message):
+    # every new incoming user utterance is added to the memory index so that
+    # future RAG queries can pick up on the conversation context.  we do this at
+    # the top of the function to guarantee it occurs consistently.
+    try:
+        rag_engine.add_memory(user_message)
+    except Exception:
+        pass
+
     try:
         user_message = user_message.strip()
         msg = user_message.lower()
@@ -463,6 +474,16 @@ def handle_chat(user_message):
                     conversation_state["flow_mode"] = "quote"
 
         user_name = get_logged_user_name() or "there"
+
+        # ================= CUSTOM SMALL TALK =================
+        if msg in ["how are you", "how r you", "how r u", "how are u"]:
+            return {"response": "I'm doing well, thank you! How can I assist you today?"}
+
+        if msg in ["who are you", "whu are you", "who r you"]:
+            return {"response": "I am Photon AI Assistant, your shipping assistant."}
+
+        if msg in ["who am i", "do you know me", "you know me"]:
+            return {"response": f"Your name is {user_name}."}
 
         # ================= CANCEL ANYTIME =================
         if msg in ["cancel", "reset", "start over"]:
@@ -1686,6 +1707,13 @@ def handle_chat(user_message):
 
         # AI RESPONSE GENERATION WITH TOOL CALLS
         if conversation_state["flow_mode"] is None:
+
+            # first try the retrieval‑augmented generator; if the question is not
+            # covered by our document collection the engine will return ``None``
+            rag_answer = rag_engine.query(user_message)
+            if rag_answer is not None:
+                rag_engine.add_memory(f"user: {user_message}\nassistant: {rag_answer}")
+                return {"response": rag_answer}
 
             SYSTEM_PROMPT = f"""
 You are Photon AI Assistant developed by AvocadoLabs Pvt Ltd.
