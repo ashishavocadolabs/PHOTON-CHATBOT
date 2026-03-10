@@ -18,6 +18,7 @@ from services.shipping_service import (
     get_recent_shipments,
     print_label
 )
+from difflib import get_close_matches
 
 load_dotenv()
 client = Groq(api_key=os.getenv("GROQ_API_KEY"))
@@ -106,6 +107,31 @@ style="vertical-align:middle;margin-right:5px">
 <path d="M22 19H2"/>
 </svg>
 """
+
+def find_warehouse_match(spoken_text, warehouses):
+
+    if not warehouses:
+        return None
+
+    names = []
+    mapping = {}
+
+    for w in warehouses:
+        name = f"{w.get('addressName')} {w.get('city')}".lower()
+        names.append(name)
+        mapping[name] = w
+
+    matches = get_close_matches(spoken_text.lower(), names, n=1, cutoff=0.4)
+
+    if matches:
+        return mapping[matches[0]]
+
+    # fallback keyword search
+    for name in names:
+        if spoken_text.lower() in name:
+            return mapping[name]
+
+    return None
 # recent shipments analysis for better response generation (not used currently, can be integrated in future)
 def analyze_recent_shipments(data):
 
@@ -259,7 +285,10 @@ def reset_state():
         "selected_past_shipment": None,
         "modify_mode": False,
 
-        "smart_flow": False
+        "smart_flow": False,
+
+        "voice_pending_match": None,
+        "voice_match_type": None,
     }
 
 reset_state()
@@ -316,7 +345,7 @@ def extract_quote_fields(message):
             value = float(single_number.group())
 
             # 🚫 DO NOT treat 6-digit numbers as weight (likely pincode)
-            if not re.fullmatch(r"\d{6}", msg) and value <= 1000:
+            if not re.fullmatch(r"\d{6}", msg) and 0 < value <= 50:
                 conversation_state["weight"] = value
                 return
 
@@ -335,7 +364,7 @@ def extract_quote_fields(message):
             break
 
 def detect_intent(message):
-    msg = message.lower().strip()
+    msg = message.lower()
 
     # tracking
     if "track" in msg:
@@ -415,7 +444,7 @@ def handle_chat(user_message):
 
         # ================= LLM PARSER =================
 
-        if intent is None:
+        if intent is None and conversation_state["flow_mode"] is None:
 
             extracted = llm_extract_shipping_details(user_message)
 
@@ -647,7 +676,7 @@ def handle_chat(user_message):
                     all_shipments.extend(recent.get("data"))
 
             if all_shipments:
-                # 🔥 AI ANALYSIS LAYER  
+                #  AI ANALYSIS LAYER  
                 analysis = analyze_recent_shipments({"data": all_shipments})
 
                 if analysis:
@@ -664,12 +693,16 @@ def handle_chat(user_message):
 
                     return {
                         "response":
-                            f"{CHART_ICON} Shipment Insights (Last 30 Days)\n\n"
-                            f"• Most used route: {analysis['from_city']} → {analysis['to_city']}\n"
-                            f"• Most common weight: {analysis['weight'][0][0]} kg\n"
-                            f"• Most common dimensions: "
-                            f"{analysis['length'][0][0]}x{analysis['width'][0][0]}x{analysis['height'][0][0]}\n\n"
-                            "What would you like to do?",
+                            f"{CHART_ICON} <b>Shipment Insights (Last 30 Days)</b><br><br>"
+
+                            f"• Most used route: <b>{analysis['from_city']} → {analysis['to_city']}</b><br><br>"
+
+                            f"• Most common weight: <b>{analysis['weight'][0][0]} kg</b><br><br>"
+
+                            f"• Most common dimensions:<br>"
+                            f"<b>{analysis['length'][0][0]} x {analysis['width'][0][0]} x {analysis['height'][0][0]}</b><br><br>"
+
+                            f"<b>What would you like to do?</b>",
                         "options": [
                             {
                                 "label": f"""
@@ -872,7 +905,7 @@ def handle_chat(user_message):
             })
 
             # Prefill state
-            conversation_state["weight"] = float(analysis["weight"][0][0])
+            conversation_state["weight"] = float(str(analysis["weight"][0][0]).split(",")[0])
             conversation_state["length"] = float(analysis["length"][0][0])
             conversation_state["width"] = float(analysis["width"][0][0])
             conversation_state["height"] = float(analysis["height"][0][0])
@@ -1185,6 +1218,87 @@ def handle_chat(user_message):
             ]
 
             return {"response": f"<b>{WAREHOUSE_ICON} Please select a warehouse:</b>", "options": options}
+        
+
+        # ===== VOICE WAREHOUSE MATCH =====
+
+        if (
+            conversation_state["flow_mode"] == "shipping"
+            and not conversation_state["warehouse"]
+            and not user_message.isdigit()
+        ):
+
+            warehouses = conversation_state.get("available_warehouses")
+
+            if not warehouses:
+                warehouses = get_all_warehouses()
+
+            match = find_warehouse_match(user_message, warehouses)
+
+            if match:
+
+                conversation_state["voice_pending_match"] = match
+                conversation_state["voice_match_type"] = "warehouse"
+
+                return {
+                    "response": f"""
+        Did you mean:
+
+        <b>{match.get('addressName')} ({match.get('city')})</b> ?
+        """,
+                    "options": [
+                        {"label": "Yes", "value": "confirm_voice_match"},
+                        {"label": "No", "value": "cancel_voice_match"}
+                    ]
+                }
+        
+        # ===== CONFIRM VOICE MATCH =====
+
+        if user_message == "confirm_voice_match":
+
+            match = conversation_state.get("voice_pending_match")
+
+            if conversation_state["voice_match_type"] == "warehouse":
+
+                conversation_state["warehouse"] = match
+
+                conversation_state["voice_pending_match"] = None
+                conversation_state["voice_match_type"] = None
+
+                shipto = get_all_shipto_addresses()
+
+                conversation_state["available_shipto"] = shipto
+
+                options = [
+                    {
+                        "label": f"{s.get('addressName')} ({s.get('city')})",
+                        "value": str(i+1)
+                    }
+                    for i, s in enumerate(shipto)
+                ]
+
+                return {
+                    "response": "<b>Select ShipTo Address:</b>",
+                    "options": options
+                }
+
+            elif conversation_state["voice_match_type"] == "shipto":
+
+                conversation_state["shipto"] = match
+
+                conversation_state["voice_pending_match"] = None
+                conversation_state["voice_match_type"] = None
+
+                return {"response": "<b>Enter Product Name:</b>"}
+            
+        if user_message == "cancel_voice_match":
+
+            conversation_state["voice_pending_match"] = None
+            conversation_state["voice_match_type"] = None
+
+            return {
+                "response": "Okay. Please say the warehouse name again."
+            }
             
         # Warehouse selection
         if conversation_state["flow_mode"] == "shipping" and not conversation_state["warehouse"] and user_message.isdigit():
@@ -1287,7 +1401,50 @@ def handle_chat(user_message):
 
                 return {"response": "<b>Address saved. Enter Product Name:</b>"}
 
-         # ShipTo selection
+         # ================= SHIPTO FUZZY MATCH =================
+
+        if (
+            conversation_state["warehouse"]
+            and not conversation_state["shipto"]
+            and not user_message.isdigit()
+        ):
+
+            shipto_list = conversation_state.get("available_shipto")
+
+            if not shipto_list:
+                shipto_list = get_all_shipto_addresses()
+
+            names = []
+            mapping = {}
+
+            for s in shipto_list:
+                name = f"{s.get('addressName')} {s.get('city')}".lower()
+                names.append(name)
+                mapping[name] = s
+
+            matches = get_close_matches(user_message.lower(), names, n=1, cutoff=0.4)
+
+            if matches:
+
+                match = mapping[matches[0]]
+
+                conversation_state["voice_pending_match"] = match
+                conversation_state["voice_match_type"] = "shipto"
+
+                return {
+                    "response": f"""
+        Did you mean:
+
+        <b>{match.get('addressName')} ({match.get('city')})</b> ?
+        """,
+                    "options": [
+                        {"label": "Yes", "value": "confirm_voice_match"},
+                        {"label": "No", "value": "cancel_voice_match"}
+                    ]
+                }
+
+
+        # ShipTo selection by number
         if conversation_state["warehouse"] and not conversation_state["shipto"]:
 
             if user_message == "add_new":
@@ -1455,7 +1612,12 @@ def handle_chat(user_message):
             }
 
         # ================= SERVICE SELECTION =================
-        if conversation_state["available_services"] and not conversation_state["carrierId"] and user_message.isdigit():
+        if (
+            conversation_state["available_services"]
+            and not conversation_state["carrierId"]
+            and user_message.isdigit()
+            and conversation_state["flow_mode"] == "shipping"
+        ):
 
             idx = int(user_message) - 1
             services = conversation_state["available_services"]
@@ -1523,8 +1685,9 @@ def handle_chat(user_message):
         
 
         # AI RESPONSE GENERATION WITH TOOL CALLS
+        if conversation_state["flow_mode"] is None:
 
-        SYSTEM_PROMPT = f"""
+            SYSTEM_PROMPT = f"""
 You are Photon AI Assistant developed by AvocadoLabs Pvt Ltd.
 
 The logged-in user's name is: {user_name if user_name else "User"}.
