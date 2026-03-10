@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-BASE_URL = "https://api.shipphoton.com"
+BASE_URL = "https://qaapi.shipphoton.com"
 
 USERNAME = os.getenv("EMAIL_ID")
 PASSWORD = os.getenv("password")
@@ -14,7 +14,8 @@ PASSWORD = os.getenv("password")
 token_cache = {
     "token": None,
     "user_id": None,
-    "name": None
+    "name": None,
+    "expires": None
 }
 
 

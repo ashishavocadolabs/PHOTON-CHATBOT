@@ -2,7 +2,7 @@ import requests
 import json
 from services.auth_service import get_headers, login, get_logged_user_id
 
-BASE_URL = "https://api.shipphoton.com"
+BASE_URL = "https://qaapi.shipphoton.com"
 DEBUG = True  # Turn OFF in production
 
 #debug logger
@@ -45,7 +45,10 @@ def safe_request(method, url, **kwargs):
 
     except requests.exceptions.RequestException as e:
         debug_log("NETWORK ERROR", str(e))
-        return {"error": f"Network error: {str(e)}"}
+        return {
+            "statusCode":500,
+            "error":str(e)
+        }
 
 
 #get pincode details
@@ -298,10 +301,16 @@ def create_shipment(state):
     response = safe_request("POST", url, json=final_payload, headers=get_headers())
 
     if isinstance(response, dict):
-        return {"statusCode": 500, "error": response["error"]}
+        # network error or other failure
+        return {"statusCode": 500, "error": response.get("error")}
 
     if response.status_code != 200:
-        return {"statusCode": response.status_code, "error": response.text}
+        # try to parse JSON body for more details
+        try:
+            body = response.json()
+        except Exception:
+            body = response.text
+        return {"statusCode": response.status_code, "error": body}
 
     return response.json()
 
@@ -332,6 +341,31 @@ def get_recent_shipments(date):
     }
 
     response = safe_request("POST", url, json=payload, headers=get_headers())
+
+    if isinstance(response, dict):
+        return {"statusCode": 500, "error": response["error"]}
+
+    if response.status_code != 200:
+        return {"statusCode": response.status_code, "error": response.text}
+
+    return response.json()
+
+# PRINT LABEL API
+def print_label(tracking_number, box_no=None, date=None):
+
+    url = f"{BASE_URL}/api/Business/PrintLabel"
+
+    params = {
+        "TrackingNo": tracking_number
+    }
+
+    if box_no:
+        params["BoxNo"] = box_no
+
+    if date:
+        params["date"] = date
+
+    response = safe_request("GET", url, params=params, headers=get_headers())
 
     if isinstance(response, dict):
         return {"statusCode": 500, "error": response["error"]}

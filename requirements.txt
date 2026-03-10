@@ -1,0 +1,14 @@
+# core libraries
+groq
+python-dotenv
+fastapi
+uvicorn
+
+# retrieval / embeddings
+numpy
+faiss-cpu  # optional; remove if you prefer sklearn cosine
+
+# other dependencies used by project
+httpx   # used for ElevenLabs text-to-speech
+
+

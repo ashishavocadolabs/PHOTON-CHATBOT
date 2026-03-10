@@ -1,10 +1,13 @@
 from fastapi import FastAPI
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, StreamingResponse
 from pydantic import BaseModel
 from core.ai_orchestrator import handle_chat, reset_state
 from services.auth_service import get_logged_user_name
+from services import tts_service  # ElevenLabs text‑to‑speech helper
+from services.shipping_service import print_label
 from fastapi.staticfiles import StaticFiles
-
+import base64
+import io
 app = FastAPI()
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
@@ -25,7 +28,8 @@ def home():
 <style>
 body {
     margin:0;
-    font-family: 'Segoe UI', sans-serif;
+    font-family: 'Inter', 'Segoe UI', sans-serif;
+    font-size:15px;
 }
 
 /* Floating Button */
@@ -48,6 +52,11 @@ body {
     overflow: visible;
 }
 
+.chat-button svg{
+    width:22px;
+    height:22px;
+    stroke:white;
+}
 /* ===== AI ENERGY RING SYSTEM ===== */
 
 .chat-button.voice-active::before,
@@ -140,7 +149,7 @@ body {
     position: fixed;
     bottom: 90px;
     right: 20px;
-    width: 360px;
+    width: 380px;
     height: 520px;
     background: #ffffff;
     border-radius: 16px;
@@ -186,11 +195,14 @@ body {
 
 .chat-messages::before {
     content:"";
-    position:fixed;     /*  change from fixed to absolute */
+    position:fixed;
     inset:0;
+
     background: url('/static/photon-img.jpg') center center no-repeat;
-    background-size: 300px;
-    opacity: 0.12;
+    background-size: 320px;
+
+    opacity:0.12;   /* increased from 0.05 */
+
     pointer-events:none;
     z-index:0;
 }
@@ -220,37 +232,27 @@ body {
 /* ===== PREMIUM HEADER ICON ===== */
 
 .header-icon {
-    width: 36px;
-    height: 36px;
+    width: 26px;
+    height: 26px;
     display:flex;
     align-items:center;
     justify-content:center;
     cursor:pointer;
-    border-radius:50%;
-    transition: all 0.3s ease;
-    background: rgba(255,255,255,0.12);
-    backdrop-filter: blur(6px);
-    box-shadow:
-        inset 0 0 5px rgba(255,255,255,0.2),
-        0 2px 6px rgba(0,0,0,0.25);
+    transition: transform 0.2s ease;
 }
 
+/* icon size */
 .header-icon svg {
     width:18px;
     height:18px;
     stroke:white;
     stroke-width:2;
     fill:none;
-    transition: transform 0.4s ease, stroke 0.3s ease;
 }
 
-/*  Hover Neon Effect */
+/* hover */
 .header-icon:hover {
-    background: rgba(0,242,254,0.2);
-    box-shadow:
-        0 0 8px #00f2fe,
-        0 0 15px #00f2fe,
-        inset 0 0 6px rgba(255,255,255,0.3);
+    transform: scale(1.1);
 }
 
 .header-icon:hover svg {
@@ -284,34 +286,115 @@ body {
     }
 }
 
+/* Bot Row Layout */
+.bot-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    margin-bottom: 14px;
+}
+
+/* Avatar */
+.bot-avatar {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    background: url('/static/photon-img.jpg') center/cover no-repeat;
+    border: 2px solid #2f6f6f;
+    flex-shrink: 0;
+    margin-top: 2px;
+}
+
+/* AI thinking avatar animation */
+.bot-avatar.thinking{
+    animation: aiPulse 1.4s ease-in-out infinite;
+}
+
+@keyframes aiPulse{
+    0%{
+        transform:scale(1);
+        box-shadow:0 0 0 rgba(47,111,111,0);
+    }
+    50%{
+        transform:scale(1.08);
+        box-shadow:0 0 12px rgba(47,111,111,0.5);
+    }
+    100%{
+        transform:scale(1);
+        box-shadow:0 0 0 rgba(47,111,111,0);
+    }
+}
+
+.bot-content {
+    display: flex;
+    flex-direction: column;
+}
+
 /* Bot Message */
 .bot {
-    background: #ffffff;
-    border: 1px solid #2f6f6f;
-    color: #1f2d2d;
-    padding: 12px 16px;
-    border-radius: 14px;
-    margin-bottom: 12px;
-    font-size: 14px;
-    max-width: 85%;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
-    position: relative;
-    z-index: 2;
+
+    background:#ffffff;
+
+    color:#1f2d2d;
+
+    padding:12px 16px;
+
+    border-radius:18px 18px 18px 4px;
+
+    margin-bottom:12px;
+
+    font-size:14px;
+
+    max-width:75%;
+
+    border:1px solid #e4e6eb;
+
+    box-shadow:0 3px 10px rgba(0,0,0,0.08);
+
+    position:relative;
+
+    z-index:5;
 }
+
+.bot::before{
+    content:"";
+    position:absolute;
+    left:-6px;
+    top:14px;
+
+    width:0;
+    height:0;
+
+    border-top:6px solid transparent;
+    border-bottom:6px solid transparent;
+    border-right:6px solid #ffffff;
+}
+
 /* User Message */
 .user {
-    background:#5fa8a8;           /* Photon normal color background */
-    color:#000000;                /* Black text */
-    border:1px solid #2f6f6f;     /* Photon border */
+
+    background:#2f6f6f;
+
+    color:white;
+
     padding:10px 14px;
-    border-radius:12px;
-    margin-bottom:10px;
+
+    border-radius:18px 18px 4px 18px;
+
     margin-left:auto;
+    margin-bottom:12px;
+
     font-size:14px;
-    max-width:80%;
+
+    max-width:65%;
+    width:fit-content;
+
+    word-wrap:break-word;
+
+    box-shadow:0 4px 10px rgba(0,0,0,0.2);
+
     position:relative;
-    z-index:2;
-    box-shadow:0 2px 6px rgba(0,0,0,0.08);
+    z-index:5;   /* IMPORTANT */
 }
 
 @keyframes fadeIn {
@@ -322,9 +405,9 @@ body {
 
 /* Typing */
 .typing span {
-    height:8px;
-    width:8px;
-    background:#00f2fe;
+    height:6px;
+    width:6px;
+    background:#555;
     border-radius:50%;
     display:inline-block;
     margin:0 2px;
@@ -332,6 +415,7 @@ body {
 }
 .typing span:nth-child(2){animation-delay:0.2s;}
 .typing span:nth-child(3){animation-delay:0.4s;}
+
 
 @keyframes bounce {
     0%,80%,100% { transform:scale(0);}
@@ -341,24 +425,33 @@ body {
 /* Sending Bubble */
 
 .sending {
-    background:#2f6f6f;      /* Photon main color */
-    color:#ffffff;
-    padding:10px 14px;
-    border-radius:12px;
-    margin-bottom:10px;
+    background:#2f6f6f;
+    color:white;
+
+    padding:8px 12px;
+
+    border-radius:18px 18px 4px 18px;
+
     margin-left:auto;
-    font-size:14px;
-    max-width:80%;
+    margin-bottom:12px;
+
+    font-size:13px;
+
+    width:fit-content;
+
     display:flex;
     align-items:center;
     gap:6px;
-    box-shadow:0 2px 6px rgba(0,0,0,0.15);
+
+    box-shadow:0 3px 8px rgba(0,0,0,0.15);
+
+    animation:fadeIn 0.2s ease;
 }
 /* Animated dots */
 .sending span {
     width:6px;
     height:6px;
-    background:black;
+    background:white;
     border-radius:50%;
     display:inline-block;
     animation: sendBounce 1.2s infinite;
@@ -437,40 +530,68 @@ body {
 }
 
 /* Options */
+/* === Compact Popup Option Cards === */
+
 .option-btn {
-    display:block;
-    width:100%;
-    text-align:left;
-    margin-top:8px;
-    padding:10px 12px;
-    border-radius:10px;
-    border:1px solid #2f6f6f;
-    background:#ffffff;     /* solid white */
-    color:#1f4e4e;
-    cursor:pointer;
+
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+
+    width:48%;
+    margin:6px 1%;
+
+    padding:12px;
+
+    border-radius:14px;
+    border:1.5px solid #2f6f6f;
+
+    background:#e8f2f2;
+
     font-size:13px;
-    position:relative;
-    z-index:2;               /* above watermark */
-    box-shadow:0 2px 6px rgba(0,0,0,0.08);
+
+    cursor:pointer;
+
+    transition:all 0.25s ease;
+
+    box-shadow:0 3px 8px rgba(0,0,0,0.08);
+
+    text-align:center;
+
+    /* 🔥 FIX FOR LONG WAREHOUSE NAMES */
+    word-break:break-word;
+    white-space:normal;
+    line-height:1.3;
+
+    position: relative;
+    z-index: 10;
 }
 
+.option-btn svg{
+    width:16px;
+    height:16px;
+}
+/* Hover */
 .option-btn:hover {
-    background:#2f6f6f;
-    color:#ffffff;
+    transform: translateY(-3px);
+    background: linear-gradient(
+        135deg,
+        #2f6f6f,
+        #1f4e4e
+    );
+    color: white;
+    box-shadow: 0 10px 20px rgba(0,0,0,0.18);
 }
 
-/* Typing Animation */
-.typing span {
-    height:6px;
-    width:6px;
-    background:#2f6f6f;
-    border-radius:50%;
-    display:inline-block;
-    margin:0 2px;
-    animation:bounce 1.4s infinite;
+/* Click */
+.option-btn:active {
+    transform: scale(0.95);
 }
-.typing span:nth-child(2){animation-delay:0.2s;}
-.typing span:nth-child(3){animation-delay:0.4s;}
+
+.bot-row {
+    margin-bottom:18px;   /* more gap between bot messages */
+}
 
 .chat-header {
     height: 50px;
@@ -574,17 +695,51 @@ body {
 /* Hi bubble from chat button */
 .chat-hi-bubble {
     position: fixed;
-    bottom: 80px;
+    bottom: 85px;
     right: 20px;
-    background: #2f6f6f;
-    color: white;
-    padding: 4px 10px;
-    border-radius: 20px;
-    font-size: 13px;
-    opacity: 0;
-    transform: translateY(10px) scale(0.9);
-    transition: all 0.4s ease;
-    box-shadow: 0 8px 20px rgba(0,0,0,0.2);
+
+    display:flex;
+    align-items:center;
+    gap:8px;
+
+    background:#ffffff;
+    color:#1f2d2d;
+
+    padding:8px 12px;
+
+    border-radius:16px;
+
+    font-size:13px;
+
+    box-shadow:0 8px 25px rgba(0,0,0,0.18);
+
+    opacity:0;
+    transform:translateY(20px) scale(0.9);
+
+    transition:all 0.35s ease;
+
+    border:1px solid #e4e6eb;
+}
+
+/* Avatar */
+.chat-hi-avatar{
+    width:26px;
+    height:26px;
+    border-radius:50%;
+    background:url('/static/photon-img.jpg') center/cover no-repeat;
+    border:2px solid #2f6f6f;
+}
+
+/* arrow */
+.chat-hi-bubble::after{
+    content:"";
+    position:absolute;
+    bottom:-6px;
+    right:20px;
+
+    border-width:6px;
+    border-style:solid;
+    border-color:#ffffff transparent transparent transparent;
 }
 
 /* small tail */
@@ -667,15 +822,78 @@ body {
 .tooltip-text {
     z-index: 2;
 }
+
+.options-wrapper {
+    display: flex;
+    flex-wrap: wrap;
+    margin-top: 8px;
+}
+
+.bot-typing-row{
+    display:flex;
+    align-items:flex-end;
+    gap:10px;
+    margin-bottom:14px;
+}
+
+.bot-typing{
+    background:#e5e5ea;
+    padding:8px 14px;
+    border-radius:18px;
+    display:inline-flex;
+    align-items:center;
+    gap:4px;
+    box-shadow:0 1px 3px rgba(0,0,0,0.1);
+}
+
+svg{
+    width:16px;
+    height:16px;
+    stroke:currentColor;
+    stroke-width:2;
+    fill:none;
+}
+
+.service-card{
+    width:100%;
+    text-align:left;
+}
+
+.service-title{
+    font-weight:600;
+    font-size:13px;
+    margin-bottom:6px;
+    word-break:break-word;
+}
+
+.service-row{
+    display:flex;
+    justify-content:space-between;
+    font-size:12px;
+}
 </style>
 </head>
 
 <body>
 <div class="chat-hi-bubble" id="chatHi">
-    Hi 👋
+
+    <div class="chat-hi-avatar"></div>
+
+    <div>
+        <b>Photon AI</b><br>
+        Hi Ashish 👋
+    </div>
+
 </div>
 
-<div class="chat-button" id="chatBtn" onclick="toggleChat()">💬</div>
+<div class="chat-button" id="chatBtn" onclick="toggleChat()">
+
+<svg viewBox="0 0 24 24" fill="none">
+<path d="M21 15a4 4 0 0 1-4 4H7l-4 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z"
+stroke="currentColor" stroke-width="2"/>
+</svg>
+
+</div>
 
 <div class="chat-box" id="chatBox">
 
@@ -692,9 +910,21 @@ body {
 
         <!-- EXISTING CONTENT (UNCHANGED) -->
         <div class="logo-area">
-            <div class="box-icon" id="boxIcon">📦</div>
-            <div class="hi-text" id="hiText">Hi 👋 Welcome to Photon AI</div>
-            <div class="truck-icon" id="truckIcon">🚚</div>
+            <div class="box-icon" id="boxIcon">
+            <svg viewBox="0 0 24 24">
+            <path d="M3 7l9-4 9 4-9 4-9-4z"/>
+            <path d="M3 7v10l9 4 9-4V7"/>
+            </svg>
+            </div>
+            <div class="hi-text" id="hiText">Welcome to Photon AI</div>
+            <div class="truck-icon" id="truckIcon">
+            <svg viewBox="0 0 24 24">
+            <rect x="1" y="3" width="15" height="13"></rect>
+            <polygon points="16,8 20,8 23,11 23,16 16,16"></polygon>
+            <circle cx="5.5" cy="18.5" r="2.5"></circle>
+            <circle cx="18.5" cy="18.5" r="2.5"></circle>
+            </svg>
+            </div>
         </div>
 
         <!-- RIGHT CLOSE ICON -->
@@ -708,20 +938,94 @@ body {
     </div>
 
     <div class="chat-messages" id="messages">
-        <div class="bot">Hello 👋 {name}! I am your AI Logistics Assistant. Speak English. Say "Hey Photon" to activate voice. And How Can I assist you in Shipping, Quote and Tracking?</div>
+
+        <div class="bot-row">
+
+            <div class="bot-avatar"></div>
+
+            <div class="bot-content">
+
+                <div class="bot">
+                    Hello <b>{name}!</b> I am your <b>AI Logistics Assistant.</b>
+                    Speak English. Say <b>"Hey Photon"</b> to activate voice.
+                </div>
+
+                <div class="options-wrapper">
+
+                    <button class="option-btn" onclick="sendOption('create shipment','Create Shipment')">
+
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                    <path d="M3 7l9-4 9 4-9 4-9-4z" stroke="currentColor" stroke-width="2"/>
+                    <path d="M3 7v10l9 4 9-4V7" stroke="currentColor" stroke-width="2"/>
+                    </svg>
+
+                    Create Shipment
+                    </button>
+
+                    <button class="option-btn" onclick="sendOption('quote','Get Quote')">
+
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                    <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/>
+                    <path d="M8 12h8M12 8v8" stroke="currentColor" stroke-width="2"/>
+                    </svg>
+
+                    Get Quote
+                    </button>
+
+                    <button class="option-btn" onclick="sendOption('tracking','Track Shipment')">
+
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                    <rect x="1" y="3" width="15" height="13" stroke="currentColor" stroke-width="2"/>
+                    <polygon points="16,8 20,8 23,11 23,16 16,16" stroke="currentColor" stroke-width="2"/>
+                    <circle cx="5.5" cy="18.5" r="2.5" stroke="currentColor" stroke-width="2"/>
+                    <circle cx="18.5" cy="18.5" r="2.5" stroke="currentColor" stroke-width="2"/>
+                    </svg>
+
+                    Track Shipment
+                    </button>
+
+                    <button class="option-btn" onclick="sendOption('print label','Print Label')">
+
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                    <rect x="6" y="9" width="12" height="8" stroke="currentColor" stroke-width="2"/>
+                    <path d="M6 9V5h12v4" stroke="currentColor" stroke-width="2"/>
+                    <path d="M9 17h6" stroke="currentColor" stroke-width="2"/>
+                    </svg>
+
+                    Print Label
+                    </button>
+
+                </div>
+
+            </div>
+
+        </div>
     </div>
 
     <div class="chat-input">
     <button class="tooltip" onclick="toggleVoice()">
-        🎙
-        <span class="tooltip-text">Mic</span>
+
+    <svg viewBox="0 0 24 24">
+    <rect x="9" y="2" width="6" height="12" rx="3"></rect>
+    <path d="M5 10v2a7 7 0 0 0 14 0v-2"></path>
+    <line x1="12" y1="19" x2="12" y2="22"></line>
+    </svg>
+
+    <span class="tooltip-text">Mic</span>
+
     </button>
         <input type="text" id="messageInput"
         placeholder="Ask about quote or shipment..."
         onkeydown="if(event.key==='Enter'){sendMessage();}">
         <button class="tooltip" onclick="sendMessage()">
-            ➤
-            <span class="tooltip-text">Send</span>
+
+        <svg viewBox="0 0 24 24">
+        <line x1="22" y1="2" x2="11" y2="13"></line>
+        <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+        </svg>
+
+        <span class="tooltip-text">Send</span>
+
         </button>
     </div>
 
@@ -731,6 +1035,7 @@ body {
 
 const USER_NAME = "{name}";
 let hiInterval = null;
+let currentAudio = null;  // track playing audio so we can stop it when new text arrives
 
 /* Toggle Chat */
 function toggleChat() {
@@ -765,8 +1070,14 @@ function toggleChat() {
     }
 }
 
+let headerLoop = null;
 /* HEADER LOOP ANIMATION (unchanged) */
 function startHeaderLoop(){
+
+    if(headerLoop){
+        clearInterval(headerLoop);
+    }
+
     const box = document.getElementById("boxIcon");
     const hi = document.getElementById("hiText");
     const truck = document.getElementById("truckIcon");
@@ -793,25 +1104,37 @@ function startHeaderLoop(){
     }
 
     run();
-    setInterval(run,6000);
+    headerLoop = setInterval(run,6000);
 }
 startHeaderLoop();
 
 /* Typing Indicator */
 function showTyping(){
-    let messagesDiv = document.getElementById("messages");
-    let typingDiv = document.createElement("div");
-    typingDiv.className = "bot";
-    typingDiv.id = "typing";
-    typingDiv.innerHTML = `<div class="typing">
-        <span></span><span></span><span></span>
-    </div>`;
-    messagesDiv.appendChild(typingDiv);
-}
 
-function removeTyping(){
-    let typingDiv = document.getElementById("typing");
-    if(typingDiv) typingDiv.remove();
+    let messagesDiv = document.getElementById("messages");
+
+    let row = document.createElement("div");
+    row.className = "bot-typing-row";
+    row.id = "typing";
+
+    let avatar = document.createElement("div");
+    avatar.className = "bot-avatar thinking";
+
+    let typing = document.createElement("div");
+    typing.className = "bot-typing";
+
+    typing.innerHTML = `
+        <div class="typing">
+            <span></span><span></span><span></span>
+        </div>
+    `;
+
+    row.appendChild(avatar);
+    row.appendChild(typing);
+
+    messagesDiv.appendChild(row);
+
+    messagesDiv.scrollTop = messagesDiv.scrollHeight;
 }
 
 /* Send Message */
@@ -823,7 +1146,10 @@ async function sendMessage() {
     let messagesDiv = document.getElementById("messages");
 
     // Show user message
-    messagesDiv.innerHTML += `<div class="user">${message}</div>`;
+    let userDiv = document.createElement("div");
+    userDiv.className = "user";
+    userDiv.innerText = message;
+    messagesDiv.appendChild(userDiv);
     input.value = "";
 
     // Show sending bubble
@@ -863,68 +1189,70 @@ function renderBotResponse(data) {
 
     let messagesDiv = document.getElementById("messages");
 
-    // 🔥 STEP 2: HANDLE EDIT FORM
-    if (data.type === "edit_form") {
+    // Create row container
+    let row = document.createElement("div");
+    row.className = "bot-row";
 
-        let formDiv = document.createElement("div");
-        formDiv.className = "bot";
+    // Avatar
+    let avatar = document.createElement("div");
+    avatar.className = "bot-avatar";
 
-        let formHTML = `<h4>📝 ${data.title}</h4>`;
+    let content = document.createElement("div");
+    content.className = "bot-content";
 
-        data.fields.forEach(field => {
-            formHTML += `
-                <div style="margin-bottom:8px;">
-                    <label style="font-size:12px;">${field.label}</label><br>
-                    <input 
-                        type="${field.type}" 
-                        id="form_${field.name}" 
-                        value="${field.value || ''}"
-                        style="width:100%; padding:6px; border-radius:6px; border:1px solid #ccc;"
-                    />
-                </div>
-            `;
-        });
-
-        formHTML += `
-            <button 
-                style="margin-top:10px; padding:8px 12px; background:#2f6f6f; color:white; border:none; border-radius:8px; cursor:pointer;"
-                onclick="submitModifyForm()"
-            >
-                💾 Save & Continue
-            </button>
-        `;
-
-        formDiv.innerHTML = formHTML;
-        messagesDiv.appendChild(formDiv);
-        messagesDiv.scrollTop = messagesDiv.scrollHeight;
-
-        return; // ⛔ STOP normal rendering
-    }
-
-    // NORMAL RESPONSE FLOW
+    // Message bubble
     let botDiv = document.createElement("div");
     botDiv.className = "bot";
-    botDiv.innerText = data.response || "Something went wrong.";
-    messagesDiv.appendChild(botDiv);
+    botDiv.innerHTML = data.response || "Something went wrong.";
 
+    content.appendChild(botDiv);
+
+    // Append
+    /* OPTIONS */
     if (data.options && data.options.length > 0) {
+
+        let wrapper = document.createElement("div");
+        wrapper.className = "options-wrapper";
+
         data.options.forEach(option => {
+
             let btn = document.createElement("button");
             btn.className = "option-btn";
-            btn.innerText = option.label;
+            btn.innerHTML = option.label;
+
             btn.onclick = function () {
+    
+                wrapper.remove();
                 sendOption(option.value, option.label);
             };
-            messagesDiv.appendChild(btn);
+
+            wrapper.appendChild(btn);
         });
+
+        content.appendChild(wrapper);
     }
 
+    row.appendChild(avatar);
+    row.appendChild(content);
+
+    messagesDiv.appendChild(row);
+
     messagesDiv.scrollTop = messagesDiv.scrollHeight;
+
+    // automatically speak bot text (only when voice mode is enabled)
+    if (listening) {
+        try {
+            const text = botDiv.textContent || botDiv.innerText || data.response || "";
+            speakText(text);
+        } catch (e) {
+            console.warn("speech error", e);
+        }
+    }
 }
 
 async function sendOption(value, label) {
     let messagesDiv = document.getElementById("messages");
-    messagesDiv.innerHTML += `<div class="user">✅ ${label}</div>`;
+    messagesDiv.innerHTML += `<div class="user">${label}</div>`;
     showTyping();
 
     let response = await fetch("/chat", {
@@ -936,6 +1264,22 @@ async function sendOption(value, label) {
     let data = await response.json();
     removeTyping();
     renderBotResponse(data);
+}
+
+function removeTyping(){
+
+    let typing = document.getElementById("typing");
+
+    if(typing){
+
+        let avatar = typing.querySelector(".bot-avatar");
+
+        if(avatar){
+            avatar.classList.remove("thinking");
+        }
+
+        typing.remove();
+    }
 }
 
 /* ================= VOICE SYSTEM ================= */
@@ -973,7 +1317,9 @@ function startVoice(){
     recognition.lang="en-US";
     recognition.continuous=true;
     recognition.interimResults=false;
-    recognition.start();
+    if(listening){
+        recognition.start();
+    }
 
     listening=true;
     document.getElementById("chatBtn").classList.add("listening");
@@ -997,8 +1343,46 @@ function startVoice(){
 }
 
 /* Text To Speech */
-function speakText(text){
+async function speakText(text){
+    // do nothing if voice feature is currently disabled
+    if (!listening) return;
     if(!text) return;
+
+    // stop any previous playback immediately
+    if (currentAudio) {
+        try {
+            currentAudio.pause();
+        } catch {}
+        currentAudio = null;
+    }
+    window.speechSynthesis.cancel();
+
+    // try server‑side tts first
+    try{
+        let resp = await fetch("/speak", {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({text})
+        });
+        if(resp.ok){
+            const blob = await resp.blob();
+            const url = URL.createObjectURL(blob);
+            const audio = new Audio(url);
+            // keep track so we can halt it if another message comes
+            currentAudio = audio;
+            audio.onended = () => {
+                currentAudio = null;
+                if(listening) recognition.start();
+            };
+            // stop mic before playback
+            if(recognition && listening){ recognition.stop(); }
+            audio.play();
+            return;
+        }
+    }catch(e){
+        // fall through to browser speech if TTS fails
+        console.warn("server tts failed", e);
+    }
 
     // Stop mic before speaking
     if(recognition && listening){
@@ -1020,6 +1404,7 @@ function speakText(text){
 
     window.speechSynthesis.speak(speech);
 }
+
 
 function closeChat(){
     let box = document.getElementById("chatBox");
@@ -1052,65 +1437,104 @@ async function resetChat(element){
     // clear UI
     let messagesDiv = document.getElementById("messages");
     messagesDiv.innerHTML = `
-        <div class="bot">
-            Hello 👋 ${USER_NAME}! I am your AI Logistics Assistant.
+    <div class="bot-row">
+
+        <div class="bot-avatar"></div>
+
+        <div class="bot-content">
+
+            <div class="bot">
+                Hello <b>${USER_NAME}!</b> I am your <b>AI Logistics Assistant.</b>
+                Speak English. Say <b>\"Hey Photon\"</b> to activate voice.
+            </div>
+
+            <div class="options-wrapper">
+
+                <button class="option-btn" onclick="sendOption('create shipment','Create Shipment')">
+
+                <svg viewBox="0 0 24 24">
+                <path d="M3 7l9-4 9 4-9 4-9-4z"/>
+                <path d="M3 7v10l9 4 9-4V7"/>
+                </svg>
+
+                Create Shipment
+                </button>
+
+                <button class="option-btn" onclick="sendOption('quote','Get Quote')">
+
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/>
+                <path d="M8 12h8M12 8v8" stroke="currentColor" stroke-width="2"/>
+                </svg>
+
+                Get Quote
+                </button>
+
+                <button class="option-btn" onclick="sendOption('tracking','Track Shipment')">
+
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                <rect x="1" y="3" width="15" height="13" stroke="currentColor" stroke-width="2"/>
+                <polygon points="16,8 20,8 23,11 23,16 16,16" stroke="currentColor" stroke-width="2"/>
+                <circle cx="5.5" cy="18.5" r="2.5" stroke="currentColor" stroke-width="2"/>
+                <circle cx="18.5" cy="18.5" r="2.5" stroke="currentColor" stroke-width="2"/>
+                </svg>
+
+                Track Shipment
+                </button>
+
+                <button class="option-btn" onclick="sendOption('print label','Print Label')">
+
+                <svg viewBox="0 0 24 24">
+                <rect x="6" y="9" width="12" height="8"/>
+                <path d="M6 9V5h12v4"/>
+                <path d="M9 17h6"/>
+                </svg>
+
+                Print Label
+                </button>
+
+            </div>
+
         </div>
+
+    </div>
     `;
+    // speak initial greeting
+    speakText(`Hello ${USER_NAME}! I am your AI Logistics Assistant. Speak English and say Hey Photon to activate voice.`);
 
     // backend reset
     await fetch("/reset", { method: "POST" });
 
+    startHeaderLoop();
+
     setTimeout(()=>{ resetInProgress = false; }, 800);
 }
 
-function startHiBubble() {
+function startHiBubble(){
 
     const bubble = document.getElementById("chatHi");
 
-    function animate() {
+    function animate(){
 
-        bubble.style.display = "block";
+        bubble.style.display="flex";
 
-        bubble.style.opacity = 1;
-        bubble.style.transform = "translateY(0) scale(1)";
+        setTimeout(()=>{
+            bubble.style.opacity=1;
+            bubble.style.transform="translateY(0) scale(1)";
+        },50);
 
-        setTimeout(() => {
-            bubble.style.opacity = 0;
-            bubble.style.transform = "translateY(10px) scale(0.9)";
-        }, 5000);
+        setTimeout(()=>{
+            bubble.style.opacity=0;
+            bubble.style.transform="translateY(15px) scale(0.9)";
+        },4500);
     }
 
     animate();
-    hiInterval = setInterval(animate, 8000);
+
+    hiInterval = setInterval(animate,8000);
 }
 
 startHiBubble();
-
-/* Modify Form Submission */
-async function submitModifyForm() {
-
-    let inputs = document.querySelectorAll("[id^='form_']");
-    let formData = {};
-
-    inputs.forEach(input => {
-        let key = input.id.replace("form_", "");
-        formData[key] = input.value;
-    });
-
-    showTyping();
-
-    let response = await fetch("/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-            message: "submit_modify_form:" + JSON.stringify(formData)
-        })
-    });
-
-    let data = await response.json();
-    removeTyping();
-    renderBotResponse(data);
-}
 </script>
 
 </body>
@@ -1122,6 +1546,23 @@ async function submitModifyForm() {
 async def chat(request: ChatRequest):
     return handle_chat(request.message)
 
+
+# legacy voice endpoint – the front-end still sends audio here but we
+# no longer perform any transcription on the server.  The browser's
+# Web Speech API handles recognition locally.
+
+
+class TTSRequest(BaseModel):
+    text: str
+
+
+@app.post("/speak")
+async def speak_endpoint(req: TTSRequest):
+    audio = await tts_service.text_to_speech(req.text)
+    if not audio:
+        return {"error": "tts not configured"}
+    return StreamingResponse(io.BytesIO(audio), media_type="audio/mpeg")
+
 @app.post("/reset")
 async def reset_chat():
     reset_state()
@@ -1130,3 +1571,42 @@ async def reset_chat():
 @app.get("/favicon.ico")
 async def favicon():
     return {}
+# ================= DOWNLOAD LABEL =================
+
+@app.get("/download-label")
+def download_label(tracking_no: str):
+
+    result = print_label(tracking_no)
+
+    # API error handling
+    if not result or result.get("statusCode") != 200:
+        return {"error": result.get("message", "Label not available")}
+
+    data = result.get("data")
+
+    if not data:
+        return {"error": "No label data returned"}
+
+    # case 1: data is dict
+    if isinstance(data, dict):
+        pdf_base64 = data.get("fileData")
+
+    # case 2: data is raw base64 string
+    elif isinstance(data, str):
+        pdf_base64 = data
+
+    else:
+        return {"error": "Invalid label format"}
+
+    if not pdf_base64:
+        return {"error": "Label file not found"}
+
+    pdf_bytes = base64.b64decode(pdf_base64)
+
+    return StreamingResponse(
+        io.BytesIO(pdf_bytes),
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f"attachment; filename=label_{tracking_no}.pdf"
+        }
+    )
