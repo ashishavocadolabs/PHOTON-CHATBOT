@@ -9,3 +9,6 @@ numpy
 faiss-cpu  # optional; remove if you prefer sklearn cosine
 
 # other dependencies used by project
+httpx   # used for ElevenLabs text-to-speech
+
+

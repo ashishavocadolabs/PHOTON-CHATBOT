@@ -120,6 +120,31 @@ PHOTON/
 
 * Modular service structure
 
+### 🔊 Voice & transcription
+
+The front‑end relies on the browser's Web Speech API for voice
+recognition and text‑to‑speech.  Server‑side transcription support has
+been removed for simplicity; the `/voice` route has been eliminated
+entirely, and no audio is posted to the server any more.  The previous
+implementation used OpenAI Whisper and required `python-multipart`;
+those dependencies are no longer needed.  Only a single microphone
+button (the blue chat button) is used for voice interaction – the
+former "record audio" icon was removed.
+
+A separate feature allows server‑side **text‑to‑speech** using ElevenLabs
+audio.  Specify `ELEVENSLAB_API` in `.env` (optionally also
+`ELEVEN_VOICE_ID` to pick a non‑default voice).  The code now defaults to
+a male voice ID – change the variable if you prefer a female or other
+characteristic.  When present the browser client will request `/speak`
+for each bot response and play the returned audio; if the endpoint is
+unavailable or fails, the normal `SpeechSynthesisUtterance` fallback is
+used.
+
+The existing *voice fuzzy matching* logic has been extended so that
+warehouse, ship‑to and courier/service names are all matched against
+spoken text, a hint is shown with the full name/description, and the
+user is asked to confirm before the value is accepted.
+
 * Extendable AI layer (now includes retrieval‑augmented generation & conversational memory)
 
 * Scalable folder organization

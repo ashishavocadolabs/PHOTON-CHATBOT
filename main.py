@@ -3,6 +3,7 @@ from fastapi.responses import HTMLResponse, StreamingResponse
 from pydantic import BaseModel
 from core.ai_orchestrator import handle_chat, reset_state
 from services.auth_service import get_logged_user_name
+from services import tts_service  # ElevenLabs text‑to‑speech helper
 from services.shipping_service import print_label
 from fastapi.staticfiles import StaticFiles
 import base64
@@ -1034,6 +1035,7 @@ stroke="currentColor" stroke-width="2"/>
 
 const USER_NAME = "{name}";
 let hiInterval = null;
+let currentAudio = null;  // track playing audio so we can stop it when new text arrives
 
 /* Toggle Chat */
 function toggleChat() {
@@ -1236,6 +1238,16 @@ function renderBotResponse(data) {
     messagesDiv.appendChild(row);
 
     messagesDiv.scrollTop = messagesDiv.scrollHeight;
+
+    // automatically speak bot text (only when voice mode is enabled)
+    if (listening) {
+        try {
+            const text = botDiv.textContent || botDiv.innerText || data.response || "";
+            speakText(text);
+        } catch (e) {
+            console.warn("speech error", e);
+        }
+    }
 }
 
 async function sendOption(value, label) {
@@ -1331,8 +1343,46 @@ function startVoice(){
 }
 
 /* Text To Speech */
-function speakText(text){
+async function speakText(text){
+    // do nothing if voice feature is currently disabled
+    if (!listening) return;
     if(!text) return;
+
+    // stop any previous playback immediately
+    if (currentAudio) {
+        try {
+            currentAudio.pause();
+        } catch {}
+        currentAudio = null;
+    }
+    window.speechSynthesis.cancel();
+
+    // try server‑side tts first
+    try{
+        let resp = await fetch("/speak", {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({text})
+        });
+        if(resp.ok){
+            const blob = await resp.blob();
+            const url = URL.createObjectURL(blob);
+            const audio = new Audio(url);
+            // keep track so we can halt it if another message comes
+            currentAudio = audio;
+            audio.onended = () => {
+                currentAudio = null;
+                if(listening) recognition.start();
+            };
+            // stop mic before playback
+            if(recognition && listening){ recognition.stop(); }
+            audio.play();
+            return;
+        }
+    }catch(e){
+        // fall through to browser speech if TTS fails
+        console.warn("server tts failed", e);
+    }
 
     // Stop mic before speaking
     if(recognition && listening){
@@ -1354,6 +1404,7 @@ function speakText(text){
 
     window.speechSynthesis.speak(speech);
 }
+
 
 function closeChat(){
     let box = document.getElementById("chatBox");
@@ -1394,7 +1445,7 @@ async function resetChat(element){
 
             <div class="bot">
                 Hello <b>${USER_NAME}!</b> I am your <b>AI Logistics Assistant.</b>
-                Speak English. Say <b>"Hey Photon"</b> to activate voice.
+                Speak English. Say <b>\"Hey Photon\"</b> to activate voice.
             </div>
 
             <div class="options-wrapper">
@@ -1448,6 +1499,8 @@ async function resetChat(element){
 
     </div>
     `;
+    // speak initial greeting
+    speakText(`Hello ${USER_NAME}! I am your AI Logistics Assistant. Speak English and say Hey Photon to activate voice.`);
 
     // backend reset
     await fetch("/reset", { method: "POST" });
@@ -1492,6 +1545,23 @@ startHiBubble();
 @app.post("/chat")
 async def chat(request: ChatRequest):
     return handle_chat(request.message)
+
+
+# legacy voice endpoint – the front-end still sends audio here but we
+# no longer perform any transcription on the server.  The browser's
+# Web Speech API handles recognition locally.
+
+
+class TTSRequest(BaseModel):
+    text: str
+
+
+@app.post("/speak")
+async def speak_endpoint(req: TTSRequest):
+    audio = await tts_service.text_to_speech(req.text)
+    if not audio:
+        return {"error": "tts not configured"}
+    return StreamingResponse(io.BytesIO(audio), media_type="audio/mpeg")
 
 @app.post("/reset")
 async def reset_chat():

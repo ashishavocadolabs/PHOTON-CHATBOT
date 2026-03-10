@@ -1261,11 +1261,16 @@ def handle_chat(user_message):
                 conversation_state["voice_pending_match"] = match
                 conversation_state["voice_match_type"] = "warehouse"
 
+                addr_label = (
+                    f"{match.get('addressName')} - {match.get('city')}, "
+                    f"{match.get('state')} ({match.get('postalCode')})"
+                )
+
                 return {
                     "response": f"""
         Did you mean:
 
-        <b>{match.get('addressName')} ({match.get('city')})</b> ?
+        <b>{addr_label}</b> ?
         """,
                     "options": [
                         {"label": "Yes", "value": "confirm_voice_match"},
@@ -1311,7 +1316,35 @@ def handle_chat(user_message):
                 conversation_state["voice_match_type"] = None
 
                 return {"response": "<b>Enter Product Name:</b>"}
-            
+
+            elif conversation_state["voice_match_type"] == "service":
+                # apply the same logic as numeric selection
+                selected = match
+
+                conversation_state["c_id"] = selected.get("carrierId")
+                conversation_state["s_id"] = selected.get("serviceId")
+
+                conversation_state["carrierId"] = selected.get("carrierCode")
+                conversation_state["serviceId"] = selected.get("serviceCode")
+
+                conversation_state["carrierCode"] = selected.get("carrierCode")
+                conversation_state["serviceCode"] = selected.get("serviceCode")
+
+                # keep match state clear
+                conversation_state["voice_pending_match"] = None
+                conversation_state["voice_match_type"] = None
+
+                conversation_state["awaiting_confirmation"] = True
+
+                return {
+                    "response":
+                    f"AI selected best courier automatically:\n\n"
+                    f"Carrier: {selected.get('carrierCode')} - {selected.get('serviceDescription')}\n"
+                    f"Price: ₹ {selected.get('totalCharges')}\n"
+                    f"Arrival: {selected.get('arrivalDate')}\n\n"
+                    f"Please say **confirm** to place order or **cancel** to change."
+                }
+
         if user_message == "cancel_voice_match":
 
             conversation_state["voice_pending_match"] = None
@@ -1452,11 +1485,16 @@ def handle_chat(user_message):
                 conversation_state["voice_pending_match"] = match
                 conversation_state["voice_match_type"] = "shipto"
 
+                ship_label = (
+                    f"{match.get('addressName')} - {match.get('city')}, "
+                    f"{match.get('state')} ({match.get('postalCode')})"
+                )
+
                 return {
                     "response": f"""
         Did you mean:
 
-        <b>{match.get('addressName')} ({match.get('city')})</b> ?
+        <b>{ship_label}</b> ?
         """,
                     "options": [
                         {"label": "Yes", "value": "confirm_voice_match"},
@@ -1631,6 +1669,42 @@ def handle_chat(user_message):
                 "response": "Choose courier service:",
                 "options": options
             }
+
+        # ===== VOICE SERVICE MATCH =====
+        # if the user speaks something that isn't a number while we're
+        # waiting for a service, attempt a fuzzy lookup and ask for
+        # confirmation just like we do for warehouses/shipto addresses.
+        if (
+            conversation_state["available_services"]
+            and not conversation_state["carrierId"]
+            and conversation_state["flow_mode"] == "shipping"
+            and not user_message.isdigit()
+        ):
+
+            services = conversation_state.get("available_services", [])
+
+            # build searchable strings for each service
+            names = []
+            mapping = {}
+            for s in services:
+                desc = f"{s.get('carrierCode')} {s.get('serviceDescription')}".lower()
+                names.append(desc)
+                mapping[desc] = s
+
+            matches = get_close_matches(user_message.lower(), names, n=1, cutoff=0.4)
+            if matches:
+                match = mapping[matches[0]]
+                conversation_state["voice_pending_match"] = match
+                conversation_state["voice_match_type"] = "service"
+
+                return {
+                    "response": f"Did you mean:\n\n<b>{match.get('carrierCode')} - {match.get('serviceDescription')}</b> ?",
+                    "options": [
+                        {"label": "Yes", "value": "confirm_voice_match"},
+                        {"label": "No", "value": "cancel_voice_match"}
+                    ]
+                }
+
 
         # ================= SERVICE SELECTION =================
         if (
@@ -1808,17 +1882,17 @@ Call get_quote function.
 When quote results are returned:
 Format clearly:
 
-📍 From: City (State), Country
-📍 To: City (State), Country
-⚖️ Weight: X kg
-📏 Dimensions: L x W x H cm
+From: City (State), Country
+To: City (State), Country
+Weight: X kg
+Dimensions: L x W x H cm
 
 📦 Available Shipping Options:
 
 For each service:
 • CarrierName - ServiceDescription
-💰 ₹ Price
-📅 ArrivalDate (TransitDays days)
+₹ Price
+ArrivalDate (TransitDays days)
 
 Do NOT modify API values.
 
@@ -2086,9 +2160,18 @@ def format_quote(result):
 def format_shipment(result):
 
     if result.get("statusCode") != 200:
-        return {
-            "response": result.get("message") or result.get("error") or "Shipment failed."
-        }
+        err = result.get("message") or result.get("error") or "Shipment failed."
+        # if error is structured, pretty-print it
+        if isinstance(err, dict):
+            try:
+                import json
+                err = json.dumps(err, indent=2)
+            except Exception:
+                err = str(err)
+        # handle generic ship-api error message more gracefully
+        if isinstance(err, str) and "Ship API error" in err:
+            err = "The courier service reported an internal error. Please try again or choose a different option."
+        return {"response": f"<b>Shipment failed:</b> {err}"}
 
     data = result.get("data", {})
 

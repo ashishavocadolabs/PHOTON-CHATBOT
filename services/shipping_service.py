@@ -301,10 +301,16 @@ def create_shipment(state):
     response = safe_request("POST", url, json=final_payload, headers=get_headers())
 
     if isinstance(response, dict):
-        return {"statusCode": 500, "error": response["error"]}
+        # network error or other failure
+        return {"statusCode": 500, "error": response.get("error")}
 
     if response.status_code != 200:
-        return {"statusCode": response.status_code, "error": response.text}
+        # try to parse JSON body for more details
+        try:
+            body = response.json()
+        except Exception:
+            body = response.text
+        return {"statusCode": response.status_code, "error": body}
 
     return response.json()
 
