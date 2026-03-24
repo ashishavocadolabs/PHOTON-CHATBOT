@@ -6,6 +6,7 @@ import re
 from groq import Groq
 from dotenv import load_dotenv
 from services.auth_service import get_logged_user_name
+from retrieval.rag_retriever import build_context
 from services.shipping_service import (
     get_quote,
     get_tracking,
@@ -337,31 +338,74 @@ def extract_quote_fields(message):
 def detect_intent(message):
     msg = message.lower().strip()
 
-    # tracking
-    if "track" in msg:
+    # ---- INFORMATIONAL / KNOWLEDGE QUESTIONS → skip to RAG fallback ----
+    info_prefixes = [
+        "how", "what", "why", "explain", "tell me about",
+        "describe", "show me how", "can you explain",
+        "what is", "what are", "how to", "how does", "how do",
+        "where", "when", "who",
+    ]
+    info_keywords = [
+        "working", "work", "process", "flow", "feature", "module",
+        "overview", "about", "mean", "meaning", "difference",
+        "generate", "pending", "without label", "not generated",
+        "history", "report", "dashboard", "spot", "analytics",
+    ]
+
+    is_question = any(msg.startswith(p) for p in info_prefixes)
+    has_info_word = any(w in msg for w in info_keywords)
+
+    if is_question and has_info_word:
+        return None  # Let RAG handle it
+
+    # ---- ACTION INTENTS (direct commands only) ----
+
+    # tracking — direct action requests only
+    track_action_phrases = [
+        "track my", "track shipment", "track package", "track parcel",
+        "track order", "track it", "tracking status",
+        "where is my", "check status",
+    ]
+    if any(phrase in msg for phrase in track_action_phrases):
         return "tracking"
 
     # quote
-    if any(word in msg for word in ["quote","rate","price","cost"]):
+    quote_phrases = [
+        "get quote", "get a quote", "shipping quote",
+        "check rate", "get rate", "shipping rate",
+        "what will it cost to ship", "how much to ship",
+        "price for shipping", "shipping cost",
+        "quote from", "rate from",
+    ]
+    if any(phrase in msg for phrase in quote_phrases):
+        return "quote"
+    if msg in ["quote", "rate", "price", "cost"]:
         return "quote"
 
-    # shipping intent
-    if any(word in msg for word in [
-        "ship",
-        "shipment",
-        "create shipment",
-        "send",
-        "parcel",
-        "courier",
-        "deliver"
-    ]):
+    # shipping — direct creation commands
+    ship_phrases = [
+        "create shipment", "create a shipment", "new shipment",
+        "ship a box", "ship from", "ship to",
+        "send package", "send parcel", "send a package",
+        "book shipment", "book a shipment",
+        "ship it", "start shipping",
+    ]
+    if any(phrase in msg for phrase in ship_phrases):
+        return "shipping"
+    if msg in ["ship", "shipment", "create shipment", "send", "parcel", "courier", "deliver"]:
         return "shipping"
 
     # label
-    if "label" in msg:
+    label_phrases = [
+        "print label", "get label", "download label",
+        "shipping label", "print my label", "label download",
+    ]
+    if any(phrase in msg for phrase in label_phrases):
+        return "print_label"
+    if msg in ["label", "print label"]:
         return "print_label"
 
-    if "help" in msg:
+    if msg == "help":
         return "help"
 
     return None
@@ -989,7 +1033,9 @@ def handle_chat(user_message):
                 conversation_state["weight"],
                 conversation_state["length"],
                 conversation_state["width"],
-                conversation_state["height"]
+                conversation_state["height"],
+                from_address=conversation_state["warehouse"],
+                to_address=conversation_state["shipto"]
             )
 
             conversation_state["available_services"] = result.get("data",{}).get("servicesOnDate",[])
@@ -1076,7 +1122,9 @@ def handle_chat(user_message):
                 conversation_state["weight"],
                 conversation_state["length"],
                 conversation_state["width"],
-                conversation_state["height"]
+                conversation_state["height"],
+                from_address=conversation_state["warehouse"],
+                to_address=conversation_state["shipto"]
             )
 
             services = result.get("data", {}).get("servicesOnDate", [])
@@ -1100,7 +1148,7 @@ def handle_chat(user_message):
 
                 return {
                     "response":
-                    f"AI selected best courier automatically:\n\n"
+                    f"AI selected best carrier automatically:\n\n"
                     f"Carrier: {best_service.get('carrierCode')} - {best_service.get('serviceDescription')}\n"
                     f"Price: ₹ {best_service.get('totalCharges')}\n"
                     f"Arrival: {best_service.get('arrivalDate')}\n\n"
@@ -1360,7 +1408,9 @@ def handle_chat(user_message):
                     conversation_state["weight"],
                     conversation_state["length"],
                     conversation_state["width"],
-                    conversation_state["height"]
+                    conversation_state["height"],
+                    from_address=conversation_state["warehouse"],
+                    to_address=conversation_state["shipto"]
                 )
 
                 conversation_state["available_services"] = result.get("data",{}).get("servicesOnDate",[])
@@ -1423,7 +1473,9 @@ def handle_chat(user_message):
                 conversation_state["weight"],
                 conversation_state["length"],
                 conversation_state["width"],
-                conversation_state["height"]
+                conversation_state["height"],
+                from_address=conversation_state["warehouse"],
+                to_address=conversation_state["shipto"]
             )
 
             conversation_state["available_services"] = result.get("data",{}).get("servicesOnDate",[])
@@ -1450,7 +1502,7 @@ def handle_chat(user_message):
                 })
 
             return {
-                "response": "Choose courier service:",
+                "response": "Choose carrier service:",
                 "options": options
             }
 
@@ -1533,20 +1585,27 @@ The logged-in user's name is: {user_name if user_name else "User"}.
 CORE ROLE
 ========================================
 
-You ONLY assist with:
+You assist with:
 
 1. Shipping Quotes
-2. creating shipments
+2. Creating Shipments
 3. Shipment Tracking
 4. Get Label
+5. ANY question about the Photon platform — features, modules, flows, processes, history, reports, dashboard, rate requests, spot rates, warehouses, addresses, etc.
 
-You do NOT answer unrelated questions.
+IMPORTANT RULE FOR KNOWLEDGE BASE:
+If KNOWLEDGE BASE CONTEXT is provided below, you MUST use it to answer the user.
+Do NOT reject questions that have matching knowledge base context.
+Questions like "how to check history", "what is dashboard", "how does rate request work", "explain reports" are ALL valid if knowledge base context is available.
 
-If user asks something outside shipping or tracking:
-Respond politely:
-"I can only assist with <b>shipping quotes, creating shipments, and shipment tracking.</b>"
+ONLY reject questions that are:
+- Completely outside logistics/shipping/Photon platform (e.g. poems, cooking, sports)
+- AND have NO relevant knowledge base context provided
 
-Do NOT repeat this unnecessarily if the conversation is already about shipping.
+Rejection response (ONLY when truly off-topic with no context):
+"I can only assist with <b>shipping, logistics, and Photon platform features.</b>"
+
+Do NOT reject questions about Photon platform features, modules, or processes.
 
 ========================================
 PERSONALITY & TONE
@@ -1557,7 +1616,35 @@ PERSONALITY & TONE
 - Not robotic
 - Do NOT repeat long instruction lists
 - Ask only what is missing
-- Keep responses concise
+
+========================================
+RESPONSE FORMATTING (MANDATORY)
+========================================
+
+For knowledge-base questions, you MUST reply using ONLY styled HTML. Do NOT output any plain text, labels, or template names. Your entire response must be valid HTML that renders visually in a chat widget.
+
+DO NOT output words like "COMPONENT LIBRARY", "TITLE HEADER", "OVERVIEW BOX", "SECTION HEADER", "STEP BOX", "FIELD LIST", "EXAMPLE BOX", "KEY POINTS BOX" — these are internal names, NEVER include them in your output.
+
+Here is exactly how a complete response must look (replace content with actual topic data):
+
+<div style="background:linear-gradient(135deg,#1a3a4a,#2f6f6f);color:#fff;padding:14px 18px;border-radius:10px 10px 0 0;margin-bottom:0"><b>📦 Rate Request Flow</b></div><div style="background:#f0fafa;padding:12px 16px;border-radius:0 0 10px 10px;border:1px solid #d0e8e8;border-top:0;margin-bottom:14px">The Rate Request module allows users to create shipment requests, retrieve carrier rates, compare services, and generate shipments with tracking.</div><div style="margin:16px 0 8px 0"><b>🔄 How It Works</b></div><div style="background:#f7fbfb;border-left:4px solid #2f6f6f;padding:10px 14px;margin:6px 0;border-radius:0 8px 8px 0"><b>Step 1: Enter Shipment Details</b><br>Fill in origin, destination, order ID, and consignor information.</div><div style="background:#f7fbfb;border-left:4px solid #2f6f6f;padding:10px 14px;margin:6px 0;border-radius:0 8px 8px 0"><b>Step 2: Enter Package Details</b><br>Provide weight, dimensions, and product description.</div><div style="background:#fafbfc;border:1px solid #e8ecef;padding:12px 16px;margin:8px 0;border-radius:8px"><b>📋 Required Fields:</b><br><br>• <b>Order ID:</b> Unique identifier (Example: OD_NEW-1)<br>• <b>Weight:</b> Package weight in KG<br></div><div style="background:#f8f9fa;border:1px solid #d0d7de;padding:12px 16px;margin:10px 0;border-radius:8px"><b>📌 Example:</b><br><br>• Trackon → Surface → Freight Forwarder 1 → ₹167.27<br>• Delhivery → Surface B2C → Freight Forwarder 1 → ₹376.13<br></div><div style="background:#fff8e1;border-left:4px solid #f9a825;padding:10px 14px;margin:10px 0;border-radius:0 8px 8px 0"><b>💡 Key Points:</b><br><br>• Compare carriers by delivery date, cost, and service type<br>• Edit details before final shipping<br></div>
+
+RULES — follow every single one:
+- Start EVERY response with the gradient title div (dark teal background, white text).
+- Immediately follow with the overview div (light teal background, no gap from title).
+- Use a section header div with bold + emoji before each group of steps.
+- Wrap EACH step in its own individual step div (light background, left green border).
+- Wrap field lists in the field div (light gray background, border).
+- Wrap examples in the example div (gray background, gray border).
+- End with the key points div (yellow background, left yellow border).
+- When comparing two things, use side-by-side flex divs.
+- NEVER output plain text outside of HTML divs.
+- NEVER output template labels or component names.
+- ALWAYS use <b> for field names and emphasis.
+- Use <br> for line breaks, • for bullets.
+- Include ALL steps for flows — never skip or summarize.
+- Include at least one example box with real values.
+- For warnings use: <div style="background:#fff3e0;border-left:4px solid #ff9800;padding:10px 14px;margin:10px 0;border-radius:0 8px 8px 0"><b>⚠️ Note:</b> text</div>
 
 ========================================
 INTENT UNDERSTANDING
@@ -1719,6 +1806,30 @@ Do not over-explain.
 Do not be repetitive.
 Do not hallucinate.
 Stay in logistics domain.
+"""
+
+        # ================= RAG CONTEXT INJECTION =================
+        rag_context = build_context(user_message)
+        if rag_context:
+            SYSTEM_PROMPT += f"""
+
+========================================
+KNOWLEDGE BASE CONTEXT (HIGH PRIORITY)
+========================================
+IMPORTANT: The following context was retrieved from the Photon company knowledge base.
+You MUST use this context to answer the user's question.
+Do NOT say "I can only assist with..." when this context is relevant.
+Base your answer primarily on this context.
+Structure the answer with proper HTML formatting (<b>, <br>, bullet points).
+Be detailed and accurate. Organize information clearly with headings and steps.
+
+CRITICAL: Each chunk below is labeled with its DOCUMENT source name.
+Pay close attention to which DOCUMENT each chunk comes from.
+If the user asks about "Rate Request", answer ONLY from chunks labeled "DOCUMENT: Rate Request".
+If the user asks about "Spot Rate Request", answer ONLY from chunks labeled "DOCUMENT: Spot Rate Request".
+Do NOT mix up content from different documents. They describe DIFFERENT features.
+
+{rag_context}
 """
 
         response = client.chat.completions.create(
@@ -1934,7 +2045,7 @@ def format_shipment(result):
 <circle cx="5.5" cy="18.5" r="2.5" stroke="currentColor" stroke-width="2"/>
 <circle cx="18.5" cy="18.5" r="2.5" stroke="currentColor" stroke-width="2"/>
 </svg>
-Courier: """ + carrier + """
+Carrier: """ + carrier + """
 </span>
 
 <span style="display:flex;align-items:center;gap:6px;margin-top:4px;">

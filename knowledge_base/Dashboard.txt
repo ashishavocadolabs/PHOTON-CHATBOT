@@ -1,0 +1,148 @@
+# Keywords
+dashboard, shipment analytics, logistics dashboard, carrier performance, shipment trends, shipment cost distribution
+
+# Dashboard Module Overview
+The Photon Logistics Dashboard is an analytics module designed to monitor and analyze shipment operations and logistics performance.
+
+It provides insights into:
+- Shipment volume trends
+- Shipment cost distribution
+- Carrier partner performance
+- Service provider activity
+
+The dashboard enables users to make data-driven decisions by offering real-time and historical shipment analytics.
+
+# Purpose of Dashboard
+
+The primary purpose of the dashboard is to:
+
+Provide operational visibility into shipment activities
+Track shipment performance across providers
+Analyze cost distribution among carriers
+Monitor weekly shipment trends
+
+# Service Provider Filters
+Available Providers:
+- All → Shows combined data
+- AV Labs → Platform owner
+- Client → External businesses
+- Freight Forwarder 1 → Logistics partner
+- Freight Forwarder 2 → Logistics partner
+- Freight Forwarder 3 → Logistics partner
+
+# Service Provider Definitions
+
+## AV Labs
+The primary organization operating the logistics platform
+Owns and manages the Photon system own Rates
+
+## Client
+External companies using logistics services Rates
+Examples: Vimla, Meditech
+
+## Freight Forwarder 1
+Third-party logistics provider
+Handles shipment transportation and Rates
+
+## Freight Forwarder 2
+Another logistics partner
+Supports shipment delivery operations and Rates
+
+## Freight Forwarder 3
+Additional logistics partner
+Works alongside other forwarders and Rates
+
+# Dashboard Analytics Components
+
+The dashboard contains 4 main visual analytics sections:
+
+## Last 4 Week Shipment
+
+Description:
+Displays shipment count over the past 4 weeks
+Shows trends across different service providers and carriers
+
+Purpose:
+- Identify growth or decline in shipments
+- Compare carrier performance
+
+Chart Type: Bar Chart
+
+## Current Week Shipment
+Description:
+- Displays shipment count for the current week
+- Grouped by date and carrier
+
+Purpose:
+- Monitor daily shipment activity
+- Track real-time performance
+
+Chart Type: Bar Chart
+
+## Last 4 Week Shipment Amount (INR)
+
+Description:
+- Shows total shipment cost distribution over the last 4 weeks
+- Displays contribution of each carrier
+
+Purpose:
+- Analyze revenue/cost contribution
+- Identify top-performing carriers
+
+Chart Type: Pie Chart
+
+## Current Week Shipment Amount (INR)
+
+Description:
+Displays shipment cost distribution for the current week
+
+Purpose:
+- Understand current financial distribution
+- Identify dominant carrier
+
+Chart Type: Pie Chart
+
+# Chart Types Used
+Bar Chart
+
+Used for:
+- Comparing shipment counts
+- Visualizing trends over time
+- Comparing providers or carriers
+
+Pie Chart
+
+Used for:
+- Showing percentage distribution
+- Identifying major contributors
+- Understanding cost share
+
+# Carriers (Couriers)
+Carriers are logistics companies responsible for shipment delivery.
+
+Common Carriers:
+- Delhivery
+- DHL
+- FedEx
+- Aramex
+- UPS
+- DTDC
+
+# Carrier Selection Logic
+
+Shipments are assigned to carriers based on:
+
+- Route availability
+- Cost efficiency
+- Client preference
+- Service level agreements (SLA)
+
+# Key Insights Provided by Dashboard
+
+The dashboard helps users:
+
+- Track shipment volume trends
+- Identify high-performing carriers
+- Analyze shipment cost distribution
+- Monitor provider-level activity
+- Make logistics optimization decisions

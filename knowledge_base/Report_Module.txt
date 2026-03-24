@@ -1,0 +1,257 @@
+# Keywords
+reports module, shipment reports, tracking report, invoice report, freight compare, error log, logistics reporting
+
+# Reports Module Overview
+
+The Reports module is used to monitor shipment activity, billing, tracking, and system errors.
+
+It includes the following sections:
+- End Of Day
+- Ship Tracking
+- Daily Shipment
+- Re-Print Label
+- Payment List
+- Generate Invoice
+- Freight Compare
+- Error Log
+
+This module helps in operational monitoring and financial tracking.
+
+# End Of Day
+
+The End Of Day page is used to finalize daily shipments for closure and billing.
+
+## Filters
+- Service Provider
+- Carrier
+- Date
+- Account / Meter
+
+## Information Displayed
+- Tracking Number
+- Order ID
+- Service Provider
+- Carrier
+- Service Description
+- Status
+- Weight (KG)
+- Shipping Charges (INR)
+- Tracking Barcode
+
+## Actions
+- Select shipments
+- Closure Meter → finalize shipments
+- View Closure Data → view summary
+
+## Purpose
+Used to close daily shipment records for billing and reporting.
+
+# Ship Tracking
+
+The Ship Tracking page is used to search and monitor shipment status.
+
+## Filters
+- Service Provider
+- Tracking Number
+- Carrier
+- Date
+
+## Information Displayed (Corrected as per UI)
+- Tracking Number
+- User ID
+- Order ID
+- Service Provider
+- Carrier Name
+- Service Description
+- Delivery Date
+- Parcel Count
+- Total Weight
+- Shipping Charges
+- Status
+
+## Action
+- Click Tracking Number → open detailed tracking view
+
+# Shipment Tracking Details
+
+Shows complete shipment lifecycle.
+
+## Shipment Status
+- Current Status (Example: On the Way)
+- Current City
+- Event Date & Time
+
+## Booking Details
+- Tracking Number
+- Booking Date
+- Estimated Delivery Date
+
+## Ship Details
+- Service Type (Example: UPS Ground)
+- Origin
+- Destination
+
+## Shipment Stages
+- Order Placed
+- Order Confirmed
+- Dispatched
+- In Transit
+- Delivered
+
+## Event Table
+- Current Status
+- Instruction
+- Current City
+- Event Date & Time
+
+# Daily Shipment
+
+Displays shipments within a selected time period.
+
+## Filters
+- Service Provider
+- Carrier
+- Select Days (Example: Last 7 Days)
+- Status
+
+## Information Displayed (Corrected)
+- Tracking Number
+- Order ID
+- User Name
+- Service Provider
+- Carrier Name
+- Service Description
+- Shipping Date
+- Total Weight
+- Ship From Country
+- Ship To Country
+- Status
+- Final Charges
+
+## Summary
+- Total Weight
+- Grand Total Charges
+
+# Re-Print Label
+
+Allows users to download shipment labels again.
+
+## Search Fields
+- Box Number / Order ID
+- Tracking Number
+- Date
+
+## Action
+- Download label
+
+## Use Case
+Used when labels are lost or need reprinting.
+
+# Payment List
+
+Displays shipment payment details.
+
+## Information Displayed
+- Customer Name
+- Order Number
+- Tracking Number
+- Payment ID
+- Total Weight
+- Amount
+- Payment Status
+- Order Date
+
+## Additional Feature
+- Raise Query → users can raise payment-related issues
+
+## Purpose
+Used to track payment transactions and disputes.
+
+# Generate Invoice
+
+Shows shipments without invoices.
+
+## Filters
+- Financial Year
+- Carrier
+- Warehouse
+- Select Days
+
+## Information Displayed (Corrected as per UI)
+- Tracking Number
+- Order ID
+- Carrier
+- Weight
+- Shipment Charge
+- Date
+- Invoice Number (if generated)
+
+## Action
+- Select shipments
+- Click Generate Invoice
+
+## Purpose
+Used to create invoices for shipments.
+
+# Freight Compare
+
+Used to compare expected vs actual shipping charges.
+
+## Filters
+- Service Provider
+- Carrier
+- Select Days
+
+## Information Displayed
+- Order ID
+- Service Provider
+- Tracking Number
+- Carrier
+- Date
+- Weight
+- Shipping Charges
+- Actual Charge
+- Difference
+
+## Logic
+
+If difference is within ±10% → Matched  
+If difference > ±10% → Mismatch  
+
+## Example
+Shipping: 1000  
+Actual: 950 → Matched  
+Actual: 1200 → Mismatch  
+
+## Purpose
+Used to detect billing discrepancies.
+
+# Error Log
+
+Tracks system and API errors.
+
+## Filters
+- Date
+- Number of Items
+
+## Information Displayed
+- Serial Number
+- Created By
+- Reference
+- API URL
+- Request Payload
+- Response Payload
+
+## Purpose
+- Debug API issues
+- Monitor failures
+- Track system errors
+
+# Key Insights
+
+The Reports module provides:
+- Shipment tracking visibility
+- Billing and invoice management
+- Freight cost validation
+- Error monitoring
+- Operational analytics

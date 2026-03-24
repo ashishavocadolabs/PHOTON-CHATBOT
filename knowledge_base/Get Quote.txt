@@ -1,0 +1,146 @@
+# Keywords
+get quote, shipping rate, quotation, parcel details, carrier rates, shipping cost, rate comparison, logistics pricing
+
+# Get Quote Module Overview
+The Get Quote module allows users to calculate and compare shipping rates for a parcel before creating a shipment.
+
+Users enter shipment details such as:
+- Origin location
+- Destination location
+- Parcel dimensions
+- Parcel weight
+
+The system retrieves available carrier services along with their shipping rates.
+
+The results are displayed in the Rate List section.
+
+# Purpose of Get Quote Module
+
+The primary purpose of this module is to:
+- Provide shipping cost estimation
+- Compare carrier services
+- Help users select the best delivery option
+- Enable informed decision-making before shipment creation
+
+# Parcel Information Section
+
+This section captures the origin and destination details of the shipment.
+
+## Fields
+
+### Postal Code From
+The postal code of the shipment origin location.
+
+### Postal Code To
+The postal code of the shipment destination location.
+
+### Ship From Country
+The country from where the shipment is sent.
+
+### Ship To Country
+The country where the shipment will be delivered.
+
+### City From
+The city where the shipment originates.
+
+### City To
+The destination city of the shipment.
+
+This information is used to:
+- Identify shipping routes
+- Determine available carrier services
+
+# Dimension and Weight Section
+
+This section captures the physical characteristics of the parcel.
+
+## Fields
+
+### Length
+The length of the parcel.
+
+### Width
+The width of the parcel.
+
+### Height
+The height of the parcel.
+
+### Length Unit (UOM)
+The unit used for parcel dimensions.
+
+Examples:
+- CM (Centimetres)
+- Inches
+
+### Weight
+The total weight of the parcel.
+
+### Weight Unit (UOM)
+The unit used to measure parcel weight.
+
+Examples:
+- KG (Kilograms)
+- LB (Pounds) for International Shipments
+
+These values are used by carrier services to:
+- Calculate shipping cost
+- Determine applicable pricing slabs
+
+# Get Quote Button
+
+The Get Quote button is used to fetch shipping rate options based on the entered shipment details.
+
+## Functionality
+
+After clicking the button:
+- The system processes shipment details
+- Available carrier services are retrieved
+- Shipping rates are calculated
+- Results are displayed in the Rate List section
+
+# Rate List Section
+
+The Rate List displays available carrier services along with their shipping cost and delivery details.
+
+## Columns
+
+### Carrier Name
+The carrier providing the shipping service.
+
+Examples:
+- Delhivery
+- Trackon
+- DHL
+- FedEx
+
+### Service Description
+The type of service offered by the carrier.
+
+Examples:
+- Surface
+- Express
+- Surface B2C
+
+### Delivery Date
+The estimated delivery date of the shipment.
+
+### Rate
+The shipping cost charged by the carrier service.
+
+- The rate is displayed in the preferred currency.
+
+# Carrier Selection Logic
+
+Carrier services are displayed based on:
+- Origin and destination location
+- Parcel dimensions and weight
+- Service availability
+- Pricing and delivery speed
+
+# Key Insights Provided by Get Quote Module
+
+The module helps users:
+- Compare multiple carrier options
+- Analyze shipping costs
+- Select optimal delivery service
+- Estimate delivery timelines

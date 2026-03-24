@@ -1,0 +1,226 @@
+# Keywords
+shipping module, shipment creation, logistics shipping, ship a box, ship delivery, manual shipping, bulk shipping, pickup request, shipment tracking
+
+# Shipping Module Overview
+
+The Shipping module is used to create and manage shipments after selecting carrier rates.
+
+It supports multiple shipment creation methods:
+- Ship a Box
+- Ship a Delivery
+- Manual Shipping
+- Mass Shipping
+- Pickup Request
+- Pending Requests / Shipment Without Label
+
+This module allows both individual and bulk shipment processing.
+
+# Ship a Box
+
+The Ship a Box feature is used to create shipments using a predefined Box Number.
+
+## Process
+- Enter Box Number
+- Click Get Data
+- System retrieves shipment details
+- Proceed with shipment
+
+## Use Case
+Used when shipment boxes are already registered in the system (ERP-based flow).
+
+# Ship a Delivery
+
+The Ship a Delivery feature is used when shipments are grouped under a Delivery Number.
+
+## Process
+- Enter Delivery Number
+- Click Get Data
+- System fetches delivery details
+- Proceed with shipment
+
+## Use Case
+Used for delivery-based shipment handling.
+
+# Manual Shipping
+
+Manual Shipping allows users to create shipments from scratch.
+
+## Shipment Information
+
+### Fields
+- Ship Date → Date of shipment
+- Ship Time → Time of shipment
+
+### Rate Shopping
+- Fetch available carrier options before shipping
+
+# Address Information
+
+## Ship From Address (Sender)
+Includes:
+- Name
+- Address
+- Postal Code
+- City
+- State
+- Country
+- Phone Number
+- Email
+
+Example:
+Sender: A.B. International  
+City: Jaipur  
+
+## Ship To Address (Receiver)
+Includes:
+- Name
+- Address
+- Postal Code
+- City
+- State
+- Country
+- Phone Number
+
+Example:
+Receiver: ABC  
+City: Kolkata  
+
+# Carrier Service Selection
+
+Users must select shipping service.
+
+## Carrier
+Examples:
+- Delhivery
+- Trackon
+- DHL
+- FedEx
+
+## Service Type
+Examples:
+- Surface
+- Express
+- B2B
+- B2C
+
+## Delivery Preferences
+- Requested Delivery Date
+- Requested Delivery Time
+
+# Invoice Details
+
+Users must provide shipment invoice details.
+
+## Fields
+- Invoice Number  
+- Invoice Amount  
+- Invoice Date  
+- Invoice File (upload)  
+- E-way Bill Number  
+
+## Purpose
+Used for:
+- Taxation
+- Compliance
+- Shipment validation
+
+# Package Details
+
+Defines shipment packaging information.
+
+## Fields
+- Packaging Material  
+- Weight  
+- Length / Width / Height  
+- Dimension Unit (CM / Inches)  
+- Declared Value  
+
+## Purpose
+Used for:
+- Shipping cost calculation
+- Carrier validation
+
+# Line Item Details
+
+Each shipment must include item-level information.
+
+## Fields
+- Item Number  
+- HSN Code  
+- Description  
+- Quantity  
+- Country of Origin  
+- Amount  
+
+## Purpose
+Used for:
+- Customs clearance
+- Documentation
+- Tax calculation
+
+# Mass Shipping
+
+Mass Shipping allows bulk shipment creation using file upload.
+
+## Process
+- Download template
+- Fill shipment details
+- Upload file
+- System creates multiple shipments
+
+## Template Includes
+- Product details  
+- Origin & destination  
+- Weight & dimensions  
+- Invoice details  
+- Packaging info  
+
+## Use Case
+Used for high-volume shipping operations.
+
+# Pickup Request
+
+Pickup Request schedules carrier pickup from warehouse.
+
+## Fields
+- Carrier  
+- Warehouse  
+- Pickup Date  
+
+## Process
+- Select carrier
+- Select warehouse
+- Choose date
+- Submit request
+
+## Result
+Carrier collects shipments from the selected warehouse.
+
+# Shipment Without Label / Pending Request
+
+This section shows shipments where labels are not yet generated.
+
+## Information Displayed
+- Tracking Number  
+- Service Provider  
+- Carrier Name  
+- Service Description  
+- Delivery Date  
+- Parcel Count  
+- Weight  
+- Shipping Charges  
+- Origin Location  
+- Destination Location  
+
+## Actions
+- Generate shipping label  
+- Update shipment details  
+
+# Key Insights of Shipping Module
+
+The Shipping module enables:
+- Multiple shipment creation methods
+- Manual and automated workflows
+- Bulk shipment handling
+- Pickup scheduling
+- Shipment tracking and label management

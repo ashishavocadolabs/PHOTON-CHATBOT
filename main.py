@@ -1,12 +1,20 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, UploadFile, File
 from fastapi.responses import HTMLResponse, StreamingResponse
 from pydantic import BaseModel
 from core.ai_orchestrator import handle_chat, reset_state
 from services.auth_service import get_logged_user_name
 from services.shipping_service import print_label
+from pipelines.ingestion_pipeline import ingest_documents
+from retrieval.vector_store import get_store_stats
+from retrieval.rag_config import KNOWLEDGE_BASE_DIR
 from fastapi.staticfiles import StaticFiles
 import base64
 import io
+import os
+import logging
+
+logger = logging.getLogger("photon.main")
+
 app = FastAPI()
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
@@ -1540,3 +1548,64 @@ def download_label(tracking_no: str):
             "Content-Disposition": f"attachment; filename=label_{tracking_no}.pdf"
         }
     )
+
+
+# =====================================================
+# RAG - KNOWLEDGE BASE ENDPOINTS
+# =====================================================
+
+@app.on_event("startup")
+async def startup_ingest():
+    """Auto-ingest documents from knowledge_base/ on server start."""
+    try:
+        result = ingest_documents()
+        logger.info(f"Startup ingestion: {result['message']}")
+    except Exception as e:
+        logger.error(f"Startup ingestion failed: {e}")
+
+
+@app.post("/rag/ingest")
+async def rag_ingest(force: bool = False):
+    """Trigger document ingestion. Use force=true to re-ingest all."""
+    try:
+        result = ingest_documents(force=force)
+        return result
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
+
+@app.post("/rag/upload")
+async def rag_upload(file: UploadFile = File(...)):
+    """Upload a .txt file to knowledge_base/ and auto-ingest."""
+    if not file.filename.endswith(".txt"):
+        return {"status": "error", "message": "Only .txt files are supported."}
+
+    safe_name = os.path.basename(file.filename)
+    dest = os.path.join(KNOWLEDGE_BASE_DIR, safe_name)
+
+    os.makedirs(KNOWLEDGE_BASE_DIR, exist_ok=True)
+    content = await file.read()
+    with open(dest, "wb") as f:
+        f.write(content)
+
+    result = ingest_documents()
+    return {
+        "status": "uploaded",
+        "file": safe_name,
+        "ingestion": result,
+    }
+
+
+@app.get("/rag/stats")
+async def rag_stats():
+    """Return vector store statistics."""
+    try:
+        stats = get_store_stats()
+        files = []
+        for fname in os.listdir(KNOWLEDGE_BASE_DIR):
+            if fname.endswith(".txt"):
+                files.append(fname)
+        stats["knowledge_base_files"] = files
+        return stats
+    except Exception as e:
+        return {"status": "error", "message": str(e)}

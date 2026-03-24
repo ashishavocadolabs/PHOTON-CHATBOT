@@ -1,0 +1,157 @@
+# Keywords
+rate request, shipment request, rate shopping, carrier selection, shipping workflow, manual shipping, tracking number, logistics process, rate calculation, carrier comparison
+
+# Rate Request Module — Complete End-to-End Flow
+
+The Rate Request module allows users to create a shipment request, retrieve available carrier rates, compare services, and generate a final shipment with a tracking number.
+
+Total Steps: 8 sequential steps from entering details to generating a tracking number.
+
+# Step 1: Enter Shipment Details
+
+The first step is to enter the shipment origin and destination information.
+
+Required Fields:
+- Order ID: Unique shipment identifier (Example: OD_NEW-1)
+- Consignor: Sender name (Example: A.B. International)
+- Customer (Ship To): Receiver of the shipment
+- Ship From Pincode: Origin postal code
+- Ship To Pincode: Destination postal code
+- Ship From Location: Country, State, City of origin
+- Ship To Location: Country, State, City of destination
+- Total Amount: Declared shipment value (used for invoice, insurance, COD)
+
+# Step 2: Enter Package Details
+
+After shipment details, users enter package specifications.
+
+Required Fields:
+- Product Description: Description of item (Example: Carpet)
+- Number of Boxes: Total number of boxes in shipment
+- Length: Package length (Example: 2 cm)
+- Width: Package width (Example: 2 cm)
+- Height: Package height (Example: 2 cm)
+- Dimension Unit (UOM): CM or Inches
+- Weight: Total shipment weight (Example: 32 KG)
+- Weight Unit (UOM): KG or LB (for international)
+
+Auto Calculations by System:
+- Total Weight is auto-calculated
+- Total Packages is auto-calculated
+- Total Boxes is auto-calculated
+
+# Step 3: Save Request for Rate Calculation
+
+After entering all details, user clicks the Save For Rate button.
+
+What happens:
+- Shipment request is saved in the system
+- Request is sent to logistics providers
+- Data is prepared for rate shopping
+
+# Step 4: Perform Rate Shopping
+
+After saving, user performs Rate Shopping to compare carrier services.
+
+What happens:
+- System retrieves available carrier services and pricing
+- Multiple carrier options are displayed with rates
+
+Example Rate Shopping Results:
+- Trackon → Surface → Freight Forwarder 1 → ₹167.27
+- Delhivery → Surface B2C → Freight Forwarder 1 → ₹376.13
+- Delhivery → Surface B2B → Freight Forwarder 2 → ₹776.20
+
+Comparison Factors:
+- Delivery date
+- Service provider name
+- Service type (Surface, Express, B2B, B2C)
+- Shipping cost in INR
+
+# Step 5: Select Carrier Service
+
+User selects the best carrier based on comparison.
+
+Carrier Type Options:
+- B2B (Business to Business)
+- B2C (Business to Customer)
+
+Different carriers support different delivery types.
+
+# Step 6: Generate Shipment
+
+After selecting a carrier, user clicks the Ship button.
+
+What happens:
+- Shipment moves to Manual Shipping Page
+- System auto-fills: Order ID, Sender details, Receiver details, Package details, Shipment value
+- User completes remaining required information
+
+Additional Required Information:
+- Invoice Number: Unique invoice reference
+- Invoice Amount: Declared shipment value
+- Invoice Date: Date of invoice creation
+- Invoice File Upload: Upload invoice document (max 5MB)
+- E-way Bill Number: Required when carrier is Delhivery and invoice amount exceeds ₹50,000 (upload limit 5MB)
+
+Package Confirmation Required:
+- Packaging material
+- Weight
+- Dimensions
+- Declared value
+- Currency
+- Number of boxes
+
+Product Item Details Required:
+- Item number (Example: 1)
+- HSN Code (Example: 3)
+- Description (Example: Carpet)
+- Quantity (Example: 1)
+- Country of Origin (Example: India)
+- Amount (Example: 3321)
+
+# Step 7: Update Package Details (Optional)
+
+Users can update package details before final submission if needed:
+- Edit shipment details
+- Update package dimensions or weight
+- Change carrier selection
+- Modify shipment information
+
+# Step 8: Generate Tracking Number
+
+After shipment is created successfully:
+- A unique tracking number is generated
+- Shipment can be tracked in real-time
+
+Tracking Status Updates:
+- Shipment Created
+- In Transit
+- Out For Delivery
+- Delivered
+
+# Key Points Summary
+
+- Users can compare multiple carrier options before selecting
+- Shipment details can be edited at any time before final shipping
+- Rate Shopping provides real-time pricing from logistics partners
+- System auto-calculates weight, packages, and boxes
+- E-way Bill is mandatory for Delhivery when invoice exceeds ₹50,000
+- Manual Order ID creation is supported
+
+# Rate Request vs Spot Rate Request Comparison
+
+Rate Request:
+- Rates are system-generated and automatic
+- Used for standard shipments
+- Pricing is instant and pre-configured
+
+Spot Rate Request:
+- Rates are provided by logistics partners manually
+- Used for special pricing or bulk shipments
+- Pricing requires manual quotation from partners
+
+# Manual Order ID Creation
+
+Users can create a manual Order ID for shipments when automatic generation is not needed.
+This provides flexibility for custom order tracking.

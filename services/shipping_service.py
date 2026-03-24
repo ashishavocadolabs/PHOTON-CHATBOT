@@ -52,9 +52,9 @@ def safe_request(method, url, **kwargs):
 
 
 #get pincode details
-def get_pincode_details(pincode):
+def get_pincode_details(pincode, country="IN"):
     url = f"{BASE_URL}/api/Common/GetPincodeDetails"
-    params = {"pincode": str(pincode), "country": "IN"}
+    params = {"pincode": str(pincode), "country": str(country)}
 
     response = safe_request("GET", url, params=params, headers=get_headers())
 
@@ -71,7 +71,7 @@ def get_pincode_details(pincode):
         result = {
             "city": data.get("cityName"),
             "state": data.get("stateCode"),
-            "country": "IN"
+            "country": str(country)
         }
 
         debug_log("PINCODE DETAILS RESULT", result)
@@ -83,10 +83,33 @@ def get_pincode_details(pincode):
 
 
 #get quote API
-def get_quote(from_pincode, to_pincode, weight, length, width, height):
+def get_quote(from_pincode, to_pincode, weight, length, width, height,
+              from_address=None, to_address=None):
+    """
+    from_address / to_address: optional warehouse/shipto dicts with
+    city, state, country, postalCode fields. When provided, city/state/country
+    are taken directly from them instead of calling get_pincode_details.
+    """
 
-    from_details = get_pincode_details(from_pincode)
-    to_details = get_pincode_details(to_pincode)
+    # Build from_details
+    if from_address:
+        from_details = {
+            "city": from_address.get("city") or from_address.get("cityName"),
+            "state": from_address.get("state") or from_address.get("stateCode"),
+            "country": from_address.get("country") or "IN"
+        }
+    else:
+        from_details = get_pincode_details(from_pincode)
+
+    # Build to_details
+    if to_address:
+        to_details = {
+            "city": to_address.get("city") or to_address.get("cityName"),
+            "state": to_address.get("state") or to_address.get("stateCode"),
+            "country": to_address.get("country") or "IN"
+        }
+    else:
+        to_details = get_pincode_details(to_pincode)
 
     if not from_details or not to_details:
         return {
@@ -100,11 +123,11 @@ def get_quote(from_pincode, to_pincode, weight, length, width, height):
         "shipFromPinCode": str(from_pincode),
         "shipFromCity": from_details["city"],
         "shipFromState": from_details["state"],
-        "shipFromCountry": "IN",
+        "shipFromCountry": from_details["country"],
         "shipToPincode": str(to_pincode),
         "shipToCity": to_details["city"],
         "shipToState": to_details["state"],
-        "shipToCountry": "IN",
+        "shipToCountry": to_details["country"],
         "length": str(length),
         "width": str(width),
         "height": str(height),

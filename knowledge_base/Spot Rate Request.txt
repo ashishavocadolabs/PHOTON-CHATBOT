@@ -1,0 +1,175 @@
+# Keywords
+spot rate request, manual quotation, custom shipping rate, negotiated pricing, logistics quotation, special rate request
+
+# Spot Rate Request Module Overview
+
+The Spot Rate Request module is used when predefined carrier rates are not available in the system or when a user needs a customized shipping price.
+
+In this process:
+- Shipment details are sent to logistics partners
+- Logistics providers manually respond with rates
+- Rates are negotiated or customized
+
+This module is used for flexible and non-standard pricing scenarios.
+
+# Purpose of Spot Rate Request
+
+Spot Rate Request is used when:
+- API rates are not available
+- A special or negotiated rate is required
+- Shipment volume is high
+- Custom pricing is needed
+
+In this process:
+- Request is sent to logistics carriers
+- Carriers provide rates manually
+
+# Shipment Information Section
+
+Users must enter shipment details before sending a request.
+
+## Fields
+
+### Order ID
+Unique identifier for the shipment order.
+
+- Can be manually entered  
+Example: OD_1
+
+### Consignor
+Sender of the shipment.  
+Example: A.B. International
+
+### Customer (Ship To)
+Recipient of the shipment.
+
+### Ship From Pincode
+Origin postal code.
+
+### Ship To Pincode
+Destination postal code.
+
+### Ship From Location
+Includes country, state, and city of origin.
+
+### Ship To Location
+Includes country, state, and city of destination.
+
+### Product Description
+Description of the shipped item.  
+Example: Carpet
+
+# Package Information
+
+Users must enter shipment package details.
+
+## Fields
+
+### Number of Boxes
+Total number of boxes.
+
+### Length / Width / Height
+Dimensions of the shipment.
+
+### Dimension Unit (UOM)
+Unit used for dimensions.
+
+Examples:
+- CM
+- Inches
+
+### Weight
+Weight of the shipment.
+
+### Total Weight
+Total shipment weight across all boxes.
+
+### Amount (Per Item)
+Declared value of the product.
+
+Used for:
+- Invoice value
+- Insurance
+- Customs
+
+# Save For Rate Button
+
+When the user clicks **Save For Rate**:
+
+## Functionality
+- Saves shipment request
+- Sends request to Spot (after rate shop)
+- Waits for carrier response
+
+Logistics partners will manually provide shipping rates.
+
+# Spot Rate Response
+
+After submission, the system stores request details in the **Rate Request Details table**.
+
+## Example Data
+- Order ID: OD_1  
+- Date: 03-16-2026  
+- From: AB International  
+- To: ABC  
+- Product: Test  
+- Weight: 3 KG  
+- Invoice Amount: ₹3232  
+
+# Carrier Rate Information
+
+Once logistics providers respond, rate details may include:
+- Carrier name
+- Contractor name
+- Shipping rate
+
+These rates are:
+- Negotiated
+- Not system-generated
+
+# Shipment Status
+
+Each request has a shipment status.
+
+## Example Status
+- Not Shipped → Shipment created but not processed
+
+After selecting a carrier:
+- Shipment moves to shipping stage
+
+# Relationship with Rate Request Module
+
+Spot Rate Request follows a similar workflow to the Rate Request module.
+
+## Key Differences
+
+### Rate Request
+- Rates are system-generated
+- Automatic pricing
+
+### Spot Rate Request
+- Rates provided by logistics partners
+- Manual quotation
+
+### Use Case Comparison
+
+- Rate Request → Standard shipments  
+- Spot Rate Request → Special pricing / bulk shipments  
+
+# Manual Order ID Creation
+
+Users can manually create Order IDs.
+
+## Example
+- OD_CUSTOM_001
+
+After creating the order:
+- Workflow continues similar to Rate Request module
+
+# Key Insights Provided by Spot Rate Request
+
+The module helps users:
+- Request custom shipping rates
+- Handle non-standard shipments
+- Work with negotiated pricing
+- Manage bulk or special logistics cases
