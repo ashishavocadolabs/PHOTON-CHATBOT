@@ -107,6 +107,75 @@ style="vertical-align:middle;margin-right:5px">
 <path d="M22 19H2"/>
 </svg>
 """
+
+REFRESH_ICON = """
+<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"
+style="vertical-align:middle;margin-right:5px">
+<path d="M21 2v6h-6"/>
+<path d="M3 12a9 9 0 0 1 15-6.7L21 8"/>
+<path d="M3 22v-6h6"/>
+<path d="M21 12a9 9 0 0 1-15 6.7L3 16"/>
+</svg>
+"""
+
+CLIPBOARD_ICON = """
+<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"
+style="vertical-align:middle;margin-right:5px">
+<rect x="8" y="2" width="8" height="4" rx="1"/>
+<path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/>
+</svg>
+"""
+
+PIN_ICON = """
+<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"
+style="vertical-align:middle;margin-right:5px">
+<path d="M12 2a7 7 0 0 0-7 7c0 5.25 7 13 7 13s7-7.75 7-13a7 7 0 0 0-7-7z"/>
+<circle cx="12" cy="9" r="2.5"/>
+</svg>
+"""
+
+LIGHTBULB_ICON = """
+<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"
+style="vertical-align:middle;margin-right:5px">
+<path d="M9 18h6"/>
+<path d="M10 22h4"/>
+<path d="M12 2a7 7 0 0 0-4 12.7V17h8v-2.3A7 7 0 0 0 12 2z"/>
+</svg>
+"""
+
+WARNING_ICON = """
+<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"
+style="vertical-align:middle;margin-right:5px">
+<path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+<line x1="12" y1="9" x2="12" y2="13"/>
+<line x1="12" y1="17" x2="12.01" y2="17"/>
+</svg>
+"""
+
+EDIT_ICON = """
+<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"
+style="vertical-align:middle;margin-right:5px">
+<path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+<path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+</svg>
+"""
+
+CANCEL_ICON = """
+<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"
+style="vertical-align:middle;margin-right:5px">
+<circle cx="12" cy="12" r="10"/>
+<line x1="15" y1="9" x2="9" y2="15"/>
+<line x1="9" y1="9" x2="15" y2="15"/>
+</svg>
+"""
+
+SPARKLE_ICON = """
+<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"
+style="vertical-align:middle;margin-right:5px">
+<path d="M12 2l2.4 7.2L22 12l-7.6 2.8L12 22l-2.4-7.2L2 12l7.6-2.8z"/>
+</svg>
+"""
+
 # recent shipments analysis for better response generation (not used currently, can be integrated in future)
 def analyze_recent_shipments(data):
 
@@ -350,10 +419,20 @@ def detect_intent(message):
         "overview", "about", "mean", "meaning", "difference",
         "generate", "pending", "without label", "not generated",
         "history", "report", "dashboard", "spot", "analytics",
+        "example", "another example", "other example", "more example",
     ]
 
     is_question = any(msg.startswith(p) for p in info_prefixes)
     has_info_word = any(w in msg for w in info_keywords)
+
+    # Direct example requests should always go to RAG
+    example_phrases = ["give me example", "give me other example", "give me another example",
+                       "show me example", "another example", "other example", "more example",
+                       "different example", "one more example"]
+    is_example_request = any(p in msg for p in example_phrases)
+
+    if is_example_request:
+        return None  # Let RAG handle it
 
     if is_question and has_info_word:
         return None  # Let RAG handle it
@@ -528,11 +607,10 @@ def handle_chat(user_message):
 
             for s in shipments[:5]:
                 tracking = s.get("trackingNo") or s.get("trackingNumber")
-                carrier = s.get("carrierCode") or "Carrier"
 
                 if tracking:
                     options.append({
-                        "label": f"{carrier} - {tracking}",
+                        "label": tracking,
                         "value": tracking
                     })
 
@@ -540,10 +618,9 @@ def handle_chat(user_message):
                 "response": "<b>Select shipment to print label:</b>",
                 "options": options
             }
-        
-        # ================= LABEL DOWNLOAD =================
-        if conversation_state["flow_mode"] == "print_label" and re.match(r"^\d+$", user_message):
 
+        # ================= LABEL DOWNLOAD (from shipment creation) =================
+        if user_message.startswith("label_"):
             tracking_no = user_message.replace("label_", "")
 
             return {
@@ -552,15 +629,59 @@ def handle_chat(user_message):
 
             <a href="/download-label?tracking_no={tracking_no}" target="_blank"
             style="
-            display:inline-block;
-            padding:8px 14px;
+            display:inline-flex;
+            align-items:center;
+            gap:6px;
+            padding:10px 18px;
             background:#2f6f6f;
             color:white;
             border-radius:8px;
             text-decoration:none;
             font-size:13px;
+            font-weight:500;
+            box-shadow:0 2px 6px rgba(31,78,78,0.2);
+            transition:background 0.2s;
             ">
-            Download Label
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+            <polyline points="7 10 12 15 17 10"/>
+            <line x1="12" y1="15" x2="12" y2="3"/>
+            </svg>
+            {tracking_no}
+            </a>
+            """
+            }
+        
+        # ================= LABEL DOWNLOAD (from print label flow) =================
+        if conversation_state["flow_mode"] == "print_label" and re.match(r"^\d+$", user_message):
+
+            tracking_no = user_message
+
+            return {
+                "response": f"""
+            <b>Download your label:</b><br><br>
+
+            <a href="/download-label?tracking_no={tracking_no}" target="_blank"
+            style="
+            display:inline-flex;
+            align-items:center;
+            gap:6px;
+            padding:10px 18px;
+            background:#2f6f6f;
+            color:white;
+            border-radius:8px;
+            text-decoration:none;
+            font-size:13px;
+            font-weight:500;
+            box-shadow:0 2px 6px rgba(31,78,78,0.2);
+            transition:background 0.2s;
+            ">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+            <polyline points="7 10 12 15 17 10"/>
+            <line x1="12" y1="15" x2="12" y2="3"/>
+            </svg>
+            {tracking_no}
             </a>
             """
         }
@@ -708,11 +829,11 @@ def handle_chat(user_message):
 
                     return {
                         "response":
-                            f"{CHART_ICON} Shipment Insights (Last 30 Days)\n\n"
-                            f"• Most used route: {analysis['from_city']} → {analysis['to_city']}\n"
-                            f"• Most common weight: {analysis['weight'][0][0]} kg\n"
-                            f"• Most common dimensions: "
-                            f"{analysis['length'][0][0]}x{analysis['width'][0][0]}x{analysis['height'][0][0]}\n\n"
+                            f"{CHART_ICON} <b>Shipment Insights</b> (Last 30 Days)<br><br>"
+                            f"<b>Most used route:</b> {analysis['from_city']} → {analysis['to_city']}<br>"
+                            f"<b>Most common weight:</b> {analysis['weight'][0][0]} kg<br>"
+                            f"<b>Most common dimensions:</b> "
+                            f"{analysis['length'][0][0]}x{analysis['width'][0][0]}x{analysis['height'][0][0]}<br><br>"
                             "What would you like to do?",
                         "options": [
                             {
@@ -781,7 +902,7 @@ def handle_chat(user_message):
                     )
                     options.append({"label": label, "value": f"past_{i}"})
 
-                options.append({"label": "🆕 Start Fresh Shipment", "value": "fresh"})
+                options.append({"label": f"{PLUS_ICON} Start Fresh Shipment", "value": "fresh"})
 
                 return {
                     "response": "I found your recent shipments. Select one to continue:",
@@ -841,9 +962,9 @@ def handle_chat(user_message):
             return {
                 "response": "What would you like to do?",
                 "options": [
-                    {"label": "🚚 Ship Same Details", "value": "ship_same"},
-                    {"label": "✏ Modify Details & Create New Shipment", "value": "modify_past"},
-                    {"label": "❌ Cancel", "value": "cancel"}
+                    {"label": f"{TRUCK_ICON} Ship Same Details", "value": "ship_same"},
+                    {"label": f"{EDIT_ICON} Modify Details & Create New Shipment", "value": "modify_past"},
+                    {"label": f"{CANCEL_ICON} Cancel", "value": "cancel"}
                 ]
             }
 
@@ -941,16 +1062,53 @@ def handle_chat(user_message):
                     break
 
             if not conversation_state["warehouse"] or not conversation_state["shipto"]:
-                return {"response": "Unable to auto-match addresses. Please select manually."}
+
+                # Fall through to manual warehouse selection
+                warehouses = conversation_state["available_warehouses"]
+
+                options = [
+                    {
+                        "label": f"""
+                        <div style="display:flex;flex-direction:column;align-items:center;text-align:center">
+
+                        <div style="margin-bottom:6px">
+                        {WAREHOUSE_ICON}
+                        </div>
+
+                        <div style="
+                        font-weight:600;
+                        font-size:13px;
+                        max-width:140px;
+                        word-break:break-word;
+                        line-height:1.3;
+                        ">
+                        {w.get('addressName')}
+                        </div>
+
+                        <div style="font-size:12px;color:#333">
+                        {w.get('city')}
+                        </div>
+
+                        </div>
+                        """,
+                        "value": str(i+1)
+                    }
+                    for i, w in enumerate(warehouses)
+                ]
+
+                return {
+                    "response": f"{WARNING_ICON} <b>Unable to auto-match addresses.</b><br>Please select a warehouse manually:",
+                    "options": options
+                }
 
             return {
                 "response": f"""
-                <b>Suggested shipment details loaded.</b><br><br>
+                <b>{SPARKLE_ICON} Suggested shipment details loaded</b><br><br>
 
-                {LOCATION_ICON} From: {analysis['from_city']}<br>
-                {LOCATION_ICON} To: {analysis['to_city']}<br>
-                {WEIGHT_ICON} Weight: {conversation_state['weight']} kg<br>
-                {DIM_ICON} Dimensions: {conversation_state['length']} x {conversation_state['width']} x {conversation_state['height']} cm<br><br>
+                {LOCATION_ICON} <b>From:</b> {analysis['from_city']}<br>
+                {LOCATION_ICON} <b>To:</b> {analysis['to_city']}<br>
+                {WEIGHT_ICON} <b>Weight:</b> {conversation_state['weight']} kg<br>
+                {DIM_ICON} <b>Dimensions:</b> {conversation_state['length']} x {conversation_state['width']} x {conversation_state['height']} cm<br><br>
 
                 <b>Enter Product Name:</b>
                 """
@@ -974,7 +1132,7 @@ def handle_chat(user_message):
                 )
                 options.append({"label": label, "value": f"past_{i}"})
 
-            options.append({"label": "🆕 Start Fresh Shipment", "value": "fresh"})
+            options.append({"label": f"{PLUS_ICON} Start Fresh Shipment", "value": "fresh"})
 
             return {
                 "response": "Select one recent shipment:",
@@ -1637,26 +1795,34 @@ For knowledge-base questions, you MUST reply using ONLY styled HTML. Do NOT outp
 
 DO NOT output words like "COMPONENT LIBRARY", "TITLE HEADER", "OVERVIEW BOX", "SECTION HEADER", "STEP BOX", "FIELD LIST", "EXAMPLE BOX", "KEY POINTS BOX" — these are internal names, NEVER include them in your output.
 
-Here is exactly how a complete response must look (replace content with actual topic data):
+Here is the HTML structure template to follow. You MUST replace ALL placeholder content (TOPIC_TITLE, OVERVIEW_TEXT, steps, fields, examples, key points) with the ACTUAL data from the knowledge base context for the topic the user is asking about. NEVER reuse the sample values shown here — always derive content from the retrieved context.
 
-<div style="background:linear-gradient(135deg,#1a3a4a,#2f6f6f);color:#fff;padding:14px 18px;border-radius:10px 10px 0 0;margin-bottom:0"><b>📦 Rate Request Flow</b></div><div style="background:#f0fafa;padding:12px 16px;border-radius:0 0 10px 10px;border:1px solid #d0e8e8;border-top:0;margin-bottom:14px">The Rate Request module allows users to create shipment requests, retrieve carrier rates, compare services, and generate shipments with tracking.</div><div style="margin:16px 0 8px 0"><b>🔄 How It Works</b></div><div style="background:#f7fbfb;border-left:4px solid #2f6f6f;padding:10px 14px;margin:6px 0;border-radius:0 8px 8px 0"><b>Step 1: Enter Shipment Details</b><br>Fill in origin, destination, order ID, and consignor information.</div><div style="background:#f7fbfb;border-left:4px solid #2f6f6f;padding:10px 14px;margin:6px 0;border-radius:0 8px 8px 0"><b>Step 2: Enter Package Details</b><br>Provide weight, dimensions, and product description.</div><div style="background:#fafbfc;border:1px solid #e8ecef;padding:12px 16px;margin:8px 0;border-radius:8px"><b>📋 Required Fields:</b><br><br>• <b>Order ID:</b> Unique identifier (Example: OD_NEW-1)<br>• <b>Weight:</b> Package weight in KG<br></div><div style="background:#f8f9fa;border:1px solid #d0d7de;padding:12px 16px;margin:10px 0;border-radius:8px"><b>📌 Example:</b><br><br>• Trackon → Surface → Freight Forwarder 1 → ₹167.27<br>• Delhivery → Surface B2C → Freight Forwarder 1 → ₹376.13<br></div><div style="background:#fff8e1;border-left:4px solid #f9a825;padding:10px 14px;margin:10px 0;border-radius:0 8px 8px 0"><b>💡 Key Points:</b><br><br>• Compare carriers by delivery date, cost, and service type<br>• Edit details before final shipping<br></div>
+<div style="background:linear-gradient(135deg,#1a3a4a,#2f6f6f);color:#fff;padding:14px 18px;border-radius:10px 10px 0 0;margin-bottom:0"><b><svg viewBox='0 0 24 24' width='16' height='16' fill='none' stroke='currentColor' stroke-width='2' style='vertical-align:middle;margin-right:5px'><path d='M3 7l9-4 9 4-9 4-9-4z'/><path d='M3 7v10l9 4 9-4V7'/></svg> [TOPIC_TITLE]</b></div><div style="background:#f0fafa;padding:12px 16px;border-radius:0 0 10px 10px;border:1px solid #d0e8e8;border-top:0;margin-bottom:14px">[OVERVIEW_TEXT from knowledge base]</div><div style="margin:16px 0 8px 0"><b><svg viewBox='0 0 24 24' width='16' height='16' fill='none' stroke='currentColor' stroke-width='2' style='vertical-align:middle;margin-right:5px'><path d='M21 2v6h-6'/><path d='M3 12a9 9 0 0 1 15-6.7L21 8'/><path d='M3 22v-6h6'/><path d='M21 12a9 9 0 0 1-15 6.7L3 16'/></svg> How It Works</b></div><div style="background:#f7fbfb;border-left:4px solid #2f6f6f;padding:10px 14px;margin:6px 0;border-radius:0 8px 8px 0"><b>Step 1: [Step title from context]</b><br>[Step description from context]</div><div style="background:#f7fbfb;border-left:4px solid #2f6f6f;padding:10px 14px;margin:6px 0;border-radius:0 8px 8px 0"><b>Step 2: [Step title from context]</b><br>[Step description from context]</div><div style="background:#fafbfc;border:1px solid #e8ecef;padding:12px 16px;margin:8px 0;border-radius:8px"><b><svg viewBox='0 0 24 24' width='16' height='16' fill='none' stroke='currentColor' stroke-width='2' style='vertical-align:middle;margin-right:5px'><rect x='8' y='2' width='8' height='4' rx='1'/><path d='M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2'/></svg> Required Fields:</b><br><br>• <b>[Field 1]:</b> [Description from context]<br>• <b>[Field 2]:</b> [Description from context]<br></div><div style="background:#f8f9fa;border:1px solid #d0d7de;padding:12px 16px;margin:10px 0;border-radius:8px"><b><svg viewBox='0 0 24 24' width='16' height='16' fill='none' stroke='currentColor' stroke-width='2' style='vertical-align:middle;margin-right:5px'><path d='M12 2a7 7 0 0 0-7 7c0 5.25 7 13 7 13s7-7.75 7-13a7 7 0 0 0-7-7z'/><circle cx='12' cy='9' r='2.5'/></svg> Example:</b><br><br>• [Real example from knowledge base context]<br>• [Another real example from knowledge base context]<br></div><div style="background:#fff8e1;border-left:4px solid #f9a825;padding:10px 14px;margin:10px 0;border-radius:0 8px 8px 0"><b><svg viewBox='0 0 24 24' width='16' height='16' fill='none' stroke='currentColor' stroke-width='2' style='vertical-align:middle;margin-right:5px'><path d='M9 18h6'/><path d='M10 22h4'/><path d='M12 2a7 7 0 0 0-4 12.7V17h8v-2.3A7 7 0 0 0 12 2z'/></svg> Key Points:</b><br><br>• [Key point 1 from context]<br>• [Key point 2 from context]<br></div>
+
+CRITICAL: The Required Fields, Examples, and Key Points sections MUST contain data specific to the topic being asked about. Extract all field names, example values, and key points directly from the knowledge base context provided. For instance:
+- If the user asks about Dashboard → show dashboard filters, analytics components, and chart types as examples.
+- If the user asks about Reports → show report types, filters, and tracking fields as examples.
+- If the user asks about Shipment Module → show shipping methods, address fields, and carrier options as examples.
+- If the user asks about Spot Rate Request → show spot rate fields, negotiation details, and status examples.
+- NEVER show Rate Request examples (like Order ID: OD_NEW-1 or carrier pricing) when the user asks about a different module.
 
 RULES — follow every single one:
-- Start EVERY response with the gradient title div (dark teal background, white text).
-- Immediately follow with the overview div (light teal background, no gap from title).
-- Use a section header div with bold + emoji before each group of steps.
+- Start EVERY response with the gradient title div (dark teal background, white text) using the ACTUAL topic title.
+- Immediately follow with the overview div (light teal background, no gap from title) using the ACTUAL topic overview.
+- Use a section header div with bold + inline SVG icon before each group of steps.
 - Wrap EACH step in its own individual step div (light background, left green border).
-- Wrap field lists in the field div (light gray background, border).
-- Wrap examples in the example div (gray background, gray border).
-- End with the key points div (yellow background, left yellow border).
+- Wrap field lists in the field div (light gray background, border) — fields MUST come from the knowledge base for the specific topic.
+- Wrap examples in the example div (gray background, gray border) — examples MUST come from the knowledge base for the specific topic.
+- End with the key points div (yellow background, left yellow border) — key points MUST be specific to the topic being discussed.
 - When comparing two things, use side-by-side flex divs.
 - NEVER output plain text outside of HTML divs.
 - NEVER output template labels or component names.
+- NEVER reuse hardcoded Rate Request examples (Order ID: OD_NEW-1, carrier pricing) for other modules.
 - ALWAYS use <b> for field names and emphasis.
 - Use <br> for line breaks, • for bullets.
 - Include ALL steps for flows — never skip or summarize.
-- Include at least one example box with real values.
-- For warnings use: <div style="background:#fff3e0;border-left:4px solid #ff9800;padding:10px 14px;margin:10px 0;border-radius:0 8px 8px 0"><b>⚠️ Note:</b> text</div>
+- Include at least one example box with real values FROM THE KNOWLEDGE BASE CONTEXT for the current topic.
+- For warnings use: <div style="background:#fff3e0;border-left:4px solid #ff9800;padding:10px 14px;margin:10px 0;border-radius:0 8px 8px 0"><b><svg viewBox='0 0 24 24' width='16' height='16' fill='none' stroke='currentColor' stroke-width='2' style='vertical-align:middle;margin-right:5px'><path d='M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z'/><line x1='12' y1='9' x2='12' y2='13'/><line x1='12' y1='17' x2='12.01' y2='17'/></svg> Note:</b> text</div>
 
 ========================================
 INTENT UNDERSTANDING
@@ -1717,17 +1883,26 @@ Call get_quote function.
 When quote results are returned:
 Format clearly:
 
-📍 From: City (State), Country
-📍 To: City (State), Country
-⚖️ Weight: X kg
-📏 Dimensions: L x W x H cm
+Use these inline SVG icons when formatting quote results:
+- Location icon (for From/To): <svg viewBox='0 0 24 24' width='16' height='16' style='vertical-align:middle;margin-right:5px'><path d='M12 21s7-5.5 7-11a7 7 0 1 0-14 0c0 5.5 7 11 7 11z'/><circle cx='12' cy='10' r='2.5'/></svg>
+- Weight icon: <svg viewBox='0 0 24 24' width='16' height='16' style='vertical-align:middle;margin-right:5px'><path d='M6 9h12l-1 10H7L6 9z'/><path d='M9 9a3 3 0 0 1 6 0'/></svg>
+- Dimensions icon: <svg viewBox='0 0 24 24' width='16' height='16' style='vertical-align:middle;margin-right:5px'><path d='M3 7h18M3 17h18'/><path d='M6 7v10M18 7v10'/></svg>
+- Box icon (for Available options): <svg viewBox='0 0 24 24' width='16' height='16' style='vertical-align:middle;margin-right:5px'><path d='M3 7l9-4 9 4-9 4-9-4z'/><path d='M3 7v10l9 4 9-4V7'/></svg>
+- Money icon (for Price): <svg viewBox='0 0 24 24' width='16' height='16' style='vertical-align:middle;margin-right:5px'><circle cx='12' cy='12' r='9'/><path d='M9 12h6'/><path d='M12 9v6'/></svg>
+- Calendar icon (for dates): <svg viewBox='0 0 24 24' width='16' height='16' style='vertical-align:middle;margin-right:5px'><rect x='3' y='5' width='18' height='16' rx='2'/><path d='M16 3v4M8 3v4M3 11h18'/></svg>
 
-📦 Available Shipping Options:
+Format:
+<location-icon> From: City (State), Country
+<location-icon> To: City (State), Country
+<weight-icon> Weight: X kg
+<dim-icon> Dimensions: L x W x H cm
+
+<box-icon> Available Shipping Options:
 
 For each service:
 • CarrierName - ServiceDescription
-💰 ₹ Price
-📅 ArrivalDate (TransitDays days)
+<money-icon> ₹ Price
+<calendar-icon> ArrivalDate (TransitDays days)
 
 Do NOT modify API values.
 
@@ -1741,7 +1916,7 @@ Ask for tracking number if missing.
 When tracking result is returned:
 Display:
 
-🚚 Tracking Status
+<svg viewBox='0 0 24 24' width='16' height='16' style='vertical-align:middle;margin-right:5px'><rect x='1' y='3' width='15' height='13'/><polygon points='16,8 20,8 23,11 23,16 16,16'/><circle cx='5.5' cy='18.5' r='2.5'/><circle cx='18.5' cy='18.5' r='2.5'/></svg> Tracking Status
 Status: CurrentStatus
 Location: CurrentLocation
 
@@ -1818,6 +1993,24 @@ Do not over-explain.
 Do not be repetitive.
 Do not hallucinate.
 Stay in logistics domain.
+
+========================================
+TOOL CALL RESTRICTIONS (VERY IMPORTANT)
+========================================
+
+ONLY call the get_quote tool when the user EXPLICITLY provides or requests a shipping quote with actual pincode, weight, and dimension values.
+
+NEVER call get_quote when:
+- User asks "give me an example" or "show me another example"
+- User asks about how a module works
+- User asks knowledge-base or informational questions
+- User asks to "explain", "describe", or "tell me about" anything
+- The conversation is about explaining Photon features
+
+When the user asks for "another example" or "more examples" after a knowledge-base answer:
+- Provide DIFFERENT example data from the knowledge base context
+- Use varied field values, carrier names, pricing, routes, etc.
+- Do NOT call any tool — just respond with HTML formatted examples
 """
 
         # ================= RAG CONTEXT INJECTION =================
@@ -2057,7 +2250,7 @@ def format_shipment(result):
 <circle cx="5.5" cy="18.5" r="2.5" stroke="currentColor" stroke-width="2"/>
 <circle cx="18.5" cy="18.5" r="2.5" stroke="currentColor" stroke-width="2"/>
 </svg>
-Carrier: """ + carrier + """
+<b>Carrier:</b> """ + carrier + """
 </span>
 
 <span style="display:flex;align-items:center;gap:6px;margin-top:4px;">
@@ -2065,7 +2258,7 @@ Carrier: """ + carrier + """
 <path d="M3 7l9-4 9 4-9 4-9-4z" stroke="currentColor" stroke-width="2"/>
 <path d="M3 7v10l9 4 9-4V7" stroke="currentColor" stroke-width="2"/>
 </svg>
-Tracking Number: """ + tracking + """
+<b>Tracking Number:</b> """ + tracking + """
 </span>
 
 <br><br>
@@ -2073,7 +2266,16 @@ Tracking Number: """ + tracking + """
 """,
     "options": [
         {
-            "label": "Download Label",
+            "label": f"""
+            <div style="display:flex;align-items:center;gap:6px;justify-content:center">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+            <polyline points="7 10 12 15 17 10"/>
+            <line x1="12" y1="15" x2="12" y2="3"/>
+            </svg>
+            Download Label
+            </div>
+            """,
              "value": f"label_{tracking}"
         },
         {
@@ -2090,9 +2292,39 @@ def format_tracking(result):
 
     data = result.get("data", {})
 
+    # Handle nested data structure
+    if isinstance(data, list) and len(data) > 0:
+        data = data[0]
+
+    status = (
+        data.get("currentStatus")
+        or data.get("status")
+        or data.get("shipmentStatus")
+        or "N/A"
+    )
+    location = (
+        data.get("currentLocation")
+        or data.get("location")
+        or data.get("lastLocation")
+        or "N/A"
+    )
+
+    tracking_no = (
+        data.get("trackingNo")
+        or data.get("trackingNumber")
+        or ""
+    )
+
     response = (
         f"{TRUCK_ICON} <b>Tracking Status</b><br><br>"
-        f"Status: {data.get('currentStatus')}<br>"
-        f"Location: {data.get('currentLocation')}"
     )
+
+    if tracking_no:
+        response += f"<b>Tracking #:</b> {tracking_no}<br>"
+
+    response += (
+        f"<b>Status:</b> {status}<br>"
+        f"<b>Location:</b> {location}"
+    )
+
     return {"response": response}
