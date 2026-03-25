@@ -585,6 +585,72 @@ def handle_chat(user_message):
             conversation_state["flow_mode"] = "tracking"
             return {"response": "<b>Sure! Please provide your tracking number.</b>"}
 
+
+        # --- LABEL DOWNLOAD HANDLING ---
+        # If user_message is 'label_{tracking_no}' or just a tracking number after label selection, trigger label download
+        if user_message.startswith("label_"):
+            tracking_no = user_message.replace("label_", "")
+            return {
+                "response": f"""
+            <b>Download your label:</b><br><br>
+
+            <a href=\"/download-label?tracking_no={tracking_no}\" target=\"_blank\"
+            style=\"
+            display:inline-flex;
+            align-items:center;
+            gap:6px;
+            padding:10px 18px;
+            background:#2f6f6f;
+            color:white;
+            border-radius:8px;
+            text-decoration:none;
+            font-size:13px;
+            font-weight:500;
+            box-shadow:0 2px 6px rgba(31,78,78,0.2);
+            transition:background 0.2s;
+            ">
+            <svg width=\"14\" height=\"14\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"white\" stroke-width=\"2\">
+            <path d=\"M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4\"/>
+            <polyline points=\"7 10 12 15 17 10\"/>
+            <line x1=\"12\" y1=\"15\" x2=\"12\" y2=\"3\"/>
+            </svg>
+            {tracking_no}
+            </a>
+            """
+            }
+
+        # Fallback: if previous message was label selection and user sends only tracking number, treat as label download
+        if conversation_state.get("flow_mode") == "print_label" and re.match(r"^\d{10,20}$", user_message.strip()):
+            tracking_no = user_message.strip()
+            return {
+                "response": f"""
+            <b>Download your label:</b><br><br>
+
+            <a href=\"/download-label?tracking_no={tracking_no}\" target=\"_blank\"
+            style=\"
+            display:inline-flex;
+            align-items:center;
+            gap:6px;
+            padding:10px 18px;
+            background:#2f6f6f;
+            color:white;
+            border-radius:8px;
+            text-decoration:none;
+            font-size:13px;
+            font-weight:500;
+            box-shadow:0 2px 6px rgba(31,78,78,0.2);
+            transition:background 0.2s;
+            ">
+            <svg width=\"14\" height=\"14\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"white\" stroke-width=\"2\">
+            <path d=\"M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4\"/>
+            <polyline points=\"7 10 12 15 17 10\"/>
+            <line x1=\"12\" y1=\"15\" x2=\"12\" y2=\"3\"/>
+            </svg>
+            {tracking_no}
+            </a>
+            """
+            }
+
         # Accept tracking number directly, even if intent is not detected, if it matches the pattern
         if re.match(r"^\d{10,20}$", tracking_no_candidate):
             # If not already in tracking flow, set it
