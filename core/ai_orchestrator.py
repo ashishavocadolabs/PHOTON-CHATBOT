@@ -583,6 +583,9 @@ def handle_chat(user_message):
             return {"response": "<b>Sure! Please provide your tracking number.</b>"}
 
         if conversation_state["flow_mode"] == "tracking":
+            # If user message is 'tracking' or empty, prompt again
+            if user_message.strip().lower() == "tracking" or not user_message.strip():
+                return {"response": "<b>Please enter your tracking number.</b>"}
             result = get_tracking(user_message)
             reset_state()
             return format_tracking(result)
@@ -1735,7 +1738,7 @@ def handle_chat(user_message):
         # AI RESPONSE GENERATION WITH TOOL CALLS
 
         SYSTEM_PROMPT = f"""
-You are Photon AI Assistant developed by AvocadoLabs Pvt Ltd.
+You are Photon AI Assistant developed by AvocadoLabs India Pvt Ltd.
 
 The logged-in user's name is: {user_name if user_name else "User"}.
 
@@ -1936,7 +1939,7 @@ IDENTITY RULES
 
 If user asks:
 "Who developed you?"
-→ "Photon AI Assistant is developed by AvocadoLabs Pvt Ltd."
+→ "Photon AI Assistant is developed by AvocadoLabs India Pvt Ltd."
 
 If user asks:
 "What is your name?"
@@ -2292,10 +2295,18 @@ def format_tracking(result):
 
     data = result.get("data", {})
 
+    # Handle empty data (no shipment found)
+    if (isinstance(data, list) and len(data) == 0) or (isinstance(data, dict) and not data):
+        return {"response": "<b>No shipment found for this tracking number.</b>"}
+
     # Handle nested data structure
     if isinstance(data, list) and len(data) > 0:
         data = data[0]
 
+    tracking_no = data.get("trackingNumber", "N/A")
+    carrier = data.get("carrierId", data.get("carrierName", "N/A"))
+    service = data.get("serviceName", "N/A")
+    ship_date = data.get("shipDate", "N/A")
     status = (
         data.get("currentStatus")
         or data.get("status")
@@ -2308,23 +2319,27 @@ def format_tracking(result):
         or data.get("lastLocation")
         or "N/A"
     )
+    last_change = data.get("lastChanges", data.get("lastChange", "N/A"))
 
-    tracking_no = (
-        data.get("trackingNo")
-        or data.get("trackingNumber")
-        or ""
-    )
+    # Map correct address fields from API
+    city_from = data.get("cityFrom", "N/A")
+    state_from = data.get("shipFromStateName", "N/A")
+    country_from = data.get("shipFromCountryName", "N/A")
+    city_to = data.get("shipToCityName", "N/A")
+    state_to = data.get("shipToStateName", "N/A")
+    country_to = data.get("shipToCountryName", "N/A")
 
-    response = (
-        f"{TRUCK_ICON} <b>Tracking Status</b><br><br>"
-    )
-
-    if tracking_no:
-        response += f"<b>Tracking #:</b> {tracking_no}<br>"
-
-    response += (
-        f"<b>Status:</b> {status}<br>"
-        f"<b>Location:</b> {location}"
-    )
+    response = f"""
+    {TRUCK_ICON} <b>Tracking Details</b><br><br>
+    <b>Tracking #:</b> {tracking_no}<br>
+    <b>Carrier:</b> {carrier}<br>
+    <b>Service:</b> {service}<br>
+    <b>Status:</b> {status}<br>
+    <b>Location:</b> {location}<br>
+    <b>Ship Date:</b> {ship_date}<br>
+    <b>Last Change:</b> {last_change}<br>
+    <b>From:</b> {city_from}, {state_from}, {country_from}<br>
+    <b>To:</b> {city_to}, {state_to}, {country_to}<br>
+    """
 
     return {"response": response}

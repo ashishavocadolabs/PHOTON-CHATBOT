@@ -335,10 +335,15 @@ def create_shipment(state):
 #Tracking API
 def get_tracking(tracking_number):
 
-    url = f"{BASE_URL}/api/Shipping/GetTracking"
-    params = {"trackingNumber": tracking_number}
+    url = f"{BASE_URL}/api/Business/ShipmentTracking"
+    payload = {
+        "trackingNumber": tracking_number,
+        "sourceType": "",
+        "date": "",
+        "carrierId": ""
+    }
 
-    response = safe_request("GET", url, params=params, headers=get_headers())
+    response = safe_request("POST", url, json=payload, headers=get_headers())
 
     if isinstance(response, dict):
         return {"statusCode": 500, "error": response["error"]}
