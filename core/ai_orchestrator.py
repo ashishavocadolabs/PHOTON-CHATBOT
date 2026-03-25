@@ -577,16 +577,32 @@ def handle_chat(user_message):
         }
 
         # ================= TRACKING FLOW =================
+
+        # If user selects 'Track Shipment' or enters a valid tracking number directly
+        tracking_no_candidate = user_message.strip()
         if intent == "tracking":
             reset_state()
             conversation_state["flow_mode"] = "tracking"
             return {"response": "<b>Sure! Please provide your tracking number.</b>"}
 
+        # Accept tracking number directly, even if intent is not detected, if it matches the pattern
+        if re.match(r"^\d{10,20}$", tracking_no_candidate):
+            # If not already in tracking flow, set it
+            if conversation_state.get("flow_mode") != "tracking":
+                conversation_state["flow_mode"] = "tracking"
+            result = get_tracking(tracking_no_candidate)
+            reset_state()
+            return format_tracking(result)
+
         if conversation_state["flow_mode"] == "tracking":
             # If user message is 'tracking' or empty, prompt again
-            if user_message.strip().lower() == "tracking" or not user_message.strip():
+            tracking_no = user_message.strip()
+            if tracking_no.lower() == "tracking" or not tracking_no:
                 return {"response": "<b>Please enter your tracking number.</b>"}
-            result = get_tracking(user_message)
+            # Validate tracking number: allow 10-20 digit numbers (adjust as needed)
+            if not re.match(r"^\d{10,20}$", tracking_no):
+                return {"response": "<b>Invalid tracking number format. Please enter a valid tracking number (10-20 digits).</b>"}
+            result = get_tracking(tracking_no)
             reset_state()
             return format_tracking(result)
         
@@ -1919,9 +1935,7 @@ Ask for tracking number if missing.
 When tracking result is returned:
 Display:
 
-<svg viewBox='0 0 24 24' width='16' height='16' style='vertical-align:middle;margin-right:5px'><rect x='1' y='3' width='15' height='13'/><polygon points='16,8 20,8 23,11 23,16 16,16'/><circle cx='5.5' cy='18.5' r='2.5'/><circle cx='18.5' cy='18.5' r='2.5'/></svg> Tracking Status
-Status: CurrentStatus
-Location: CurrentLocation
+<svg viewBox='0 0 24 24' width='16' height='16' style='vertical-align:middle;margin-right:5px'><rect x='1' y='3' width='15' height='13'/><polygon points='16,8 20,8 23,11 23,16 16,16'/><circle cx='5.5' cy='18.5' r='2.5'/><circle cx='18.5' cy='18.5' r='2.5'/></svg> Please provide your tracking number.
 
 Do NOT fabricate status.
 
